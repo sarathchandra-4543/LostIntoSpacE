@@ -169,7 +169,24 @@ export interface TelemetryPoint {
   ambient_pressure_Pa: number;
   pitch_rad: number;
   yaw_rad: number;
+  /** Angle between the vehicle's axis and the airflow. Unit: rad. */
   angle_of_attack_rad: number;
+  /**
+   * Speed relative to the air mass, which is what the aerodynamics act on.
+   * Differs from `speed_ms` whenever there is wind.
+   */
+  airspeed_ms: number;
+  /** Wind speed at this altitude. Unit: m/s. */
+  wind_speed_ms: number;
+  /** Direction the wind is coming from, meteorological convention. Unit: deg. */
+  wind_direction_deg: number;
+  /**
+   * Dynamic pressure times angle of attack — the lateral bending load, and the
+   * number that decides whether a windy day is flyable. Unit: Pa·deg.
+   */
+  q_alpha_Padeg: number;
+  /** Distance from the intended ground track. Unit: m. */
+  lateral_deviation_m: number;
   semi_major_axis_m: number;
   eccentricity: number;
   periapsis_altitude_m: number;
@@ -230,6 +247,14 @@ export interface SimSummary {
   delta_v_ideal_ms: number;
   gravity_loss_ms: number;
   drag_loss_ms: number;
+  /** Peak lateral bending load during powered atmospheric ascent. Unit: Pa·deg. */
+  max_q_alpha_Padeg: number;
+  /** Peak angle of attack during powered atmospheric ascent. Unit: degrees. */
+  max_angle_of_attack_deg: number;
+  /** Furthest the vehicle was carried off its intended ground track. Unit: m. */
+  max_lateral_deviation_m: number;
+  /** Strongest wind encountered at any altitude. Unit: m/s. */
+  max_wind_speed_ms: number;
 }
 
 export interface SimResult {

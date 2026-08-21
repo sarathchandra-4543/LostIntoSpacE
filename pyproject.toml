@@ -21,6 +21,35 @@ dependencies = [
     "numpy>=1.21",
 ]
 
+# Package discovery, stated explicitly.
+#
+# The repository root holds eleven top-level directories, and setuptools will
+# not guess which of them are packages — it refuses the build rather than
+# shipping something unintended, which is the right call and is how CI first
+# failed here.
+#
+# This project owns the P4 trees only (see the header): `data`, `search` and
+# `ai`, plus the shared `contracts` package, which lives under
+# `packages/contracts/src` and is mapped in below. `apps/api` and `simulation`
+# declare their own manifests and are installed separately.
+# `contracts` is mapped in from `packages/contracts/src` and must also be
+# *listed*, not just mapped: a package-dir entry says where a package lives, and
+# the find directive says which packages to install. Mapping without listing
+# installed everything except contracts, which surfaced as a
+# ModuleNotFoundError the moment CI seeded a database.
+[tool.setuptools]
+package-dir = { "contracts" = "packages/contracts/src/contracts" }
+packages = [
+    "contracts",
+    "ai", "ai.analysis", "ai.assistant", "ai.context", "ai.grounding",
+    "ai.missions", "ai.prompts", "ai.providers", "ai.recommendations", "ai.safety",
+    "data", "data.cache", "data.catalog", "data.entity_resolution",
+    "data.environment", "data.ingestion", "data.models", "data.normalization",
+    "data.offline", "data.provenance", "data.seeds", "data.sources", "data.validation",
+    "search", "search.embeddings", "search.evaluation", "search.indexing",
+    "search.keyword", "search.ranking", "search.retrieval", "search.vector_store",
+]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
