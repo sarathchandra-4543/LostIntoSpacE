@@ -1,0 +1,22 @@
+{
+  "name": "lostintospace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LostIntoSpacE monorepo root - npm workspaces for the web app and the simulation engine.",
+  "license": "MIT",
+  "workspaces": [
+    "apps/web",
+    "packages/simulation-engine"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @lostintospace/web",
+    "build": "npm run build --workspace @lostintospace/web",
+    "preview": "npm run preview --workspace @lostintospace/web",
+    "lint": "npm run lint --workspace @lostintospace/web",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspace @lostintospace/simulation-engine"
+  }
+}

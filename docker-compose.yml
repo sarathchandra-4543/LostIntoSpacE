@@ -1,0 +1,56 @@
+# Brings up PostgreSQL and the API together.
+#
+#   docker compose up --build
+#
+# This exists because provisioning PostgreSQL by hand is the step every
+# developer hits individually: the app, Alembic and the test suite all need a
+# `lostintospace` role and database that a fresh machine does not have, and
+# without them /health/ready, /lessons, /space-objects and every authenticated
+# route answer 503 DATABASE_UNAVAILABLE. The db service below creates the role,
+# the database and the password on first start, so `docker compose up` reaches
+# a working system without anyone typing a CREATE ROLE.
+#
+# The web app is deliberately NOT a service here. apps/web/vite.config.ts
+# proxies /api to localhost:8000, so `npm run dev` on the host already talks to
+# the API published below, with no CORS involved.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      # These three are what the postgres image uses to provision on first run,
+      # and they are what DATABASE_URL below expects. Change them together.
+      POSTGRES_USER: lostintospace
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: lostintospace
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The API's first action is `alembic upgrade head`, which fails outright
+      # against a server that is listening but not yet ready to accept queries.
+      test: ["CMD-SHELL", "pg_isready -U lostintospace -d lostintospace"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: deployment/docker/api.Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # `db` is the compose service name, not localhost: inside the network the
+      # database is not on the API container's loopback.
+      DATABASE_URL: postgresql+asyncpg://lostintospace:password@db:5432/lostintospace
+      # Origin of the Vite dev server on the host (apps/web/vite.config.ts).
+      CORS_ORIGINS: http://localhost:3000
+      APP_ENV: development
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

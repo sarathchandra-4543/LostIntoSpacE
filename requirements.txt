@@ -1,0 +1,60 @@
+# Complete Python environment for LostIntoSpacE.
+#
+#   python -m venv apps/api/venv
+#   apps/api/venv/Scripts/python -m pip install -r requirements.txt   # Windows
+#   apps/api/venv/bin/python     -m pip install -r requirements.txt   # POSIX
+#
+# Every version below is the one this repository's full suite was verified
+# against (1845 passed / 65 skipped) on CPython 3.14.4. The authoritative
+# version RANGES live in the two pyproject.toml files; this file pins the exact
+# point in those ranges that is known to work, so a fresh clone gets a running
+# environment in one command instead of discovering missing packages one
+# ImportError at a time.
+#
+# Two interpreter floors coexist on purpose and are NOT a mistake:
+#   - apps/api/pyproject.toml  requires-python >=3.11  (uses datetime.UTC and
+#     `isinstance(x, dict | list)`, both 3.10/3.11+ runtime features)
+#   - pyproject.toml (root)    requires-python >=3.9   (the P4-owned data/,
+#     search/, ai/ and packages/contracts/ trees stay 3.9-clean on purpose)
+# The union is what actually runs the whole repo: Python >= 3.11.
+
+# ---------- Web framework ----------
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+
+# ---------- Settings and validation ----------
+pydantic==2.13.4
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+email-validator==2.3.0
+
+# ---------- Database ----------
+# greenlet is what makes SQLAlchemy's asyncio bridge work; it is pulled in by
+# the [asyncio] extra but pinned here so the version is reproducible.
+SQLAlchemy[asyncio]==2.0.52
+greenlet==3.5.5
+asyncpg==0.31.0
+alembic==1.19.1
+
+# ---------- Auth ----------
+# bcrypt is used DIRECTLY. Do not add passlib: it probes `bcrypt.__about__`,
+# removed in bcrypt 4.1+, and raises AttributeError on the first hash call.
+# See apps/api/src/core/security/__init__.py and DECISION_LOG #30.
+bcrypt==5.0.0
+python-jose[cryptography]==3.5.0
+cryptography==50.0.0
+
+# ---------- HTTP client (data source adapters, and the FastAPI TestClient) ----------
+httpx==0.28.1
+
+# ---------- Numerics ----------
+# Optional at runtime: search/vector_store/memory.py falls back to a pure-Python
+# similarity loop when numpy is absent, and the API boots either way. Installed
+# because it is the fast path and one test asserts both paths agree.
+numpy==2.5.2
+
+# ---------- Test and lint tooling ----------
+pytest==8.4.2
+pytest-asyncio==1.4.0
+ruff==0.16.3
+mypy==1.20.2
