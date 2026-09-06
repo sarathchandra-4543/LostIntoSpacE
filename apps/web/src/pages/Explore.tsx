@@ -1,117 +1,98 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { DatabaseUnavailable } from '@/components/layout/DatabaseUnavailable';
-import { Starfield } from '@/components/features/explore/Starfield';
-import { Badge, EmptyState, ErrorPanel, Input, Panel, Spinner } from '@/components/ui';
+import { BodyDisc } from '@/components/features/explore/BodyDisc';
+import { Acquiring, Badge, EmptyState, ErrorPanel, Input, SectionRule } from '@/components/ui';
 import { useDebounce } from '@/hooks/useDebounce';
-import { spaceObjects } from '@/services/api';
-import type { SpaceObject } from '@/types';
-
+import { catalog, type CatalogObject } from '@/services/api';
 
 /**
- * Explore — the catalogue, browsed visually.
+ * The object explorer.
  *
- * ## What was wrong with it
+ * Backed by the catalog rather than by search: 38 objects with published bulk
+ * parameters, real photography where one exists, and measured appearance data
+ * where one does not. The previous version queried a `space_objects` table
+ * nothing had ever seeded, so this page reliably showed nothing at all.
  *
- * Two things, both about photographs. Every image was drawn into a fixed
- * 128-pixel band with `object-cover`, so a portrait-format Hubble frame lost
- * its top and bottom and a wide Cassini mosaic lost its ends. What survived was
- * the middle of the picture, which for a ringed planet or an edge-on galaxy is
- * often the least informative part of it. These are *scientific* images: the
- * framing is the observation, and cropping it away is closer to falsifying it
- * than to styling it.
+ * ## Grouped by what a thing *is*
  *
- * They are now given a fixed 4:3 stage and contained inside it, so the whole
- * frame is visible whatever its aspect. The letterboxing that results is the
- * honest outcome — the image is the shape it is.
+ * Not one flat grid. The Sun, the planets, the moons, the small bodies and the
+ * spacecraft are different kinds of object with different properties worth
+ * reading, and a grid that mixes Jupiter with a 490-metre asteroid implies a
+ * comparison that is not meaningful. Each group is a band, ordered outward from
+ * the Sun where that ordering exists.
  *
- * ## Classification
+ * ## Bodies are drawn, not photographed
  *
- * The catalogue spans planets, moons, small bodies, spacecraft, deep-sky
- * objects and exoplanets, and a single flat run of filter chips gave no hint
- * that those are different *kinds* of thing. They are grouped now, in the order
- * a reader naturally works outward: the solar system, then what orbits it, then
- * what we have built, then everything beyond.
+ * In the browse view every object is rendered from its own measured colour,
+ * albedo and texture class. That is deliberate rather than a shortfall: a drawn
+ * disc reads clearly at 64 px where a photograph becomes a grey smudge, it
+ * costs no bandwidth, and it is consistent — a photograph of Titan and a
+ * photograph of Enceladus were taken under wildly different illumination, and
+ * side by side that reads as a fact about the moons rather than about the
+ * cameras. The photographs appear on the detail page, at a size that earns them.
  */
 
-/**
- * Categories gathered into families.
- *
- * Keyed on the substrings the API's category strings actually contain, so a
- * category the backend adds later still lands somewhere sensible rather than
- * vanishing from the filter bar.
- */
-const FAMILIES: readonly { label: string; match: readonly string[] }[] = [
-  { label: 'Solar system', match: ['planet', 'star', 'sun', 'dwarf'] },
-  { label: 'Moons', match: ['moon', 'satellite', 'natural'] },
-  { label: 'Small bodies', match: ['asteroid', 'comet', 'meteor', 'kuiper', 'trans-neptunian'] },
-  { label: 'Missions and craft', match: ['spacecraft', 'craft', 'probe', 'rover', 'lander', 'station', 'telescope', 'launch'] },
-  { label: 'Deep sky', match: ['nebula', 'galaxy', 'cluster', 'black hole', 'supernova', 'remnant', 'quasar', 'pulsar'] },
-  { label: 'Exoplanets', match: ['exoplanet'] },
+/** The kind bands, in the order the page presents them. */
+const KIND_ORDER: readonly { id: string; label: string; blurb: string }[] = [
+  { id: 'star', label: 'The star', blurb: '99.86% of the mass of the solar system.' },
+  {
+    id: 'planet',
+    label: 'Planets',
+    blurb: 'Ordered outward from the Sun. Every distance here is to scale in the numbers, never in the picture.',
+  },
+  {
+    id: 'dwarf_planet',
+    label: 'Dwarf planets',
+    blurb: 'Round under their own gravity, but sharing their orbit with a crowd.',
+  },
+  { id: 'moon', label: 'Moons', blurb: 'Several are larger than Mercury. Two have oceans.' },
+  {
+    id: 'asteroid',
+    label: 'Asteroids',
+    blurb: 'Rubble piles and metal cores. Escape velocity measured in centimetres per second.',
+  },
+  { id: 'comet', label: 'Comets', blurb: 'Ice that grows a tail when the Sun reaches it.' },
+  {
+    id: 'spacecraft',
+    label: 'Spacecraft',
+    blurb: 'Built objects, still flying. Two have left the solar system.',
+  },
+  { id: 'telescope', label: 'Observatories', blurb: 'Instruments that see what eyes cannot.' },
+  { id: 'station', label: 'Stations', blurb: 'Crewed, and falling continuously.' },
 ];
-
-/** Which family a category string belongs to, or null if none claims it. */
-function familyOf(category: string): string | null {
-  const needle = category.toLowerCase();
-  for (const family of FAMILIES) {
-    if (family.match.some((token) => needle.includes(token))) return family.label;
-  }
-  return null;
-}
 
 export default function Explore() {
   const [query, setQuery] = useState('');
   const debounced = useDebounce(query, 250);
-  const [category, setCategory] = useState<string | null>(null);
-  const [family, setFamily] = useState<string | null>(null);
-
-  const [items, setItems] = useState<SpaceObject[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [dbDown, setDbDown] = useState(false);
+  const [objects, setObjects] = useState<CatalogObject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    spaceObjects
-      .categories()
-      .then(setCategories)
-      .catch(() => setCategories([]));
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     setError(null);
-
-    spaceObjects
-      .list({
-        q: debounced.trim() || undefined,
-        category: category ?? undefined,
-        per_page: 60,
-      })
-      .then(({ items: rows, total: count }) => {
-        if (cancelled) return;
-        setItems(rows);
-        setTotal(count);
-        setDbDown(false);
+    catalog
+      .objects(debounced.trim() ? { q: debounced.trim() } : {})
+      .then((data) => {
+        if (!cancelled) setObjects(data);
       })
       .catch((cause: unknown) => {
-        if (cancelled) return;
-        const message = cause instanceof Error ? cause.message : 'Objects could not be loaded.';
-        // A 503 from readiness, or a driver error, both mean "no database".
-        setDbDown(/database|unavailable|reach|connect/i.test(message));
-        setError(message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : 'The catalog could not be loaded.');
+        }
       });
-
     return () => {
       cancelled = true;
     };
-  }, [debounced, category]);
+  }, [debounced]);
+
+  const groups = useMemo(() => {
+    if (!objects) return [];
+    return KIND_ORDER.map((kind) => ({
+      ...kind,
+      items: objects.filter((object) => object.kind === kind.id),
+    })).filter((group) => group.items.length > 0);
+  }, [objects]);
 
   /** Categories present in the catalogue, grouped into families. */
   const grouped = useMemo(() => {
@@ -140,220 +121,149 @@ export default function Explore() {
   };
 
   return (
-    <div>
-      {/* ── Masthead ───────────────────────────────────────── */}
-      <div className="relative overflow-hidden hairline-b">
-        <Starfield className="absolute inset-0" density={140} />
-        <div className="relative mx-auto max-w-7xl px-5 py-10 sm:px-6 md:py-14">
-          <p className="t-label mb-3">Explore</p>
-          <h1 className="font-display text-display-sm leading-none text-ink-50 md:text-5xl">
-            Everything in the catalogue
+    <div className="mx-auto max-w-[1400px] px-6 py-8">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-6 hairline-b pb-5">
+        <div>
+          <p className="t-label mb-1">Explore</p>
+          <h1 className="font-display text-display-sm leading-none text-ink-50">
+            The catalog
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-400">
-            Planets, moons, small bodies, spacecraft and deep-sky objects — every figure carrying
-            the source it came from, and every photograph shown whole rather than cropped to fit a
-            card.
+          <p className="mt-3 max-w-[42rem] text-sm leading-relaxed text-ink-400">
+            Thirty-eight objects, with published bulk parameters and the source of every
+            number attached. Each body is drawn from its own measured colour and albedo —
+            the photographs are on the detail pages, where they are big enough to be worth
+            looking at.
           </p>
+        </div>
+
+        <div className="w-full max-w-xs">
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search the catalogue…"
-            aria-label="Search space objects"
-            className="mt-6 w-full max-w-md"
+            placeholder="Search objects…"
+            aria-label="Search the catalog"
           />
+          {objects && (
+            <p className="mt-1.5 font-mono text-micro text-ink-600">
+              {objects.length} object{objects.length === 1 ? '' : 's'}
+              {debounced.trim() ? ` matching “${debounced.trim()}”` : ''}
+            </p>
+          )}
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto max-w-7xl space-y-5 px-5 py-6 sm:px-6">
-        {/* ── Classification ───────────────────────────────── */}
-        {grouped.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by family">
-              <button
-                type="button"
-                onClick={clearFilters}
-                aria-pressed={family === null && category === null}
-                className="chip"
-              >
-                Everything
-              </button>
-              {grouped.map((group) => (
-                <button
-                  key={group.label}
-                  type="button"
-                  onClick={() => {
-                    setCategory(null);
-                    setFamily(family === group.label ? null : group.label);
-                  }}
-                  aria-pressed={family === group.label}
-                  className="chip"
-                >
-                  {group.label}
-                  <span className="ml-1.5 font-mono text-[0.6rem] opacity-60">
-                    {group.categories.length}
-                  </span>
-                </button>
-              ))}
-            </div>
+      {error && <ErrorPanel message={error} className="mb-6" />}
 
-            {openFamily && (
-              <div
-                className="flex flex-wrap gap-1.5 hairline-t pt-2"
-                role="group"
-                aria-label={`Categories in ${openFamily.label}`}
-              >
-                {openFamily.categories.map((name) => (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => setCategory(category === name ? null : name)}
-                    aria-pressed={category === name}
-                    className="chip"
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+      {!objects && !error && <Acquiring rows={10} />}
 
-        {/* ── Results ──────────────────────────────────────── */}
-        {dbDown ? (
-          <DatabaseUnavailable what="The space-object catalogue" />
-        ) : loading ? (
-          <div className="flex justify-center py-20">
-            <Spinner />
-          </div>
-        ) : error ? (
-          <ErrorPanel message={error} />
-        ) : items.length === 0 ? (
-          <EmptyState
-            title="Nothing matches"
-            description="Try a different search term, or clear the filters."
-          />
-        ) : (
-          <>
-            <p className="font-mono text-tiny text-ink-600">
-              {total} object{total === 1 ? '' : 's'}
-              {category ? ` in ${category}` : ''}
+      {objects && objects.length === 0 && (
+        <EmptyState
+          title="Nothing matches that"
+          description={`No object in the catalog matches “${debounced.trim()}”. Try a body, a mission, or a property like “ocean” or “volcanic”.`}
+        />
+      )}
+
+      <div className="space-y-12">
+        {groups.map((group) => (
+          <section key={group.id}>
+            <SectionRule
+              label={group.label}
+              aside={
+                <span className="font-mono text-micro text-ink-600">{group.items.length}</span>
+              }
+            />
+            <p className="-mt-2 mb-5 max-w-[40rem] text-tiny leading-relaxed text-ink-500">
+              {group.blurb}
             </p>
 
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {items.map((object) => (
+            <ul className="grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              {group.items.map((object) => (
                 <li key={object.id}>
-                  <ObjectCard object={object} />
+                  <ObjectTile object={object} />
                 </li>
               ))}
             </ul>
-          </>
-        )}
-
-        {/* Provenance is not a footnote here: it is the product's argument. */}
-        <Panel className="mt-2">
-          <p className="text-[0.65rem] leading-relaxed text-ink-500">
-            Bulk parameters come from NASA's planetary fact sheets and JPL Solar System Dynamics;
-            exoplanet parameters from the NASA Exoplanet Archive; orbital elements from CelesTrak
-            and the Minor Planet Center; Indian mission and Earth-observation records from ISRO.
-            Photographs are NASA, ESA and ISRO public-domain or open-licence imagery, each shown
-            with the credit attached. Every record carries its own source — open one to see it.
-          </p>
-        </Panel>
+          </section>
+        ))}
       </div>
     </div>
   );
 }
 
 /**
- * One object.
+ * One object in the browse grid.
  *
- * The photograph gets a fixed 4:3 stage and is *contained* within it, so a tall
- * frame letterboxes rather than losing its ends. Objects with no verified
- * photograph get a drawn placeholder rather than an empty box — a gap in a grid
- * of pictures reads as a failure, and "we have no image of this" is a different
- * statement from "this failed to load".
+ * The disc is sized by the *logarithm* of the real radius, not linearly. Linear
+ * scaling within a band puts Ganymede at 2,634 km beside Enceladus at 252 km and
+ * makes the second one four pixels across; the log keeps both legible while
+ * still showing that one is much larger. It is a distortion, so the real radius
+ * is printed underneath rather than left to be read off the picture.
  */
-function ObjectCard({ object }: { object: SpaceObject }) {
-  const image = object.images?.[0];
+function ObjectTile({ object }: { object: CatalogObject }) {
+  const headline = object.physical[0] ?? object.orbital[0];
 
   return (
     <Link
       to={`/explore/${object.id}`}
-      className="glass-panel flex h-full flex-col overflow-hidden focus-ring"
+      className="group block focus-ring"
+      aria-label={`${object.name} — ${object.classification}`}
     >
-      <div
-        className="relative w-full overflow-hidden"
-        style={{ aspectRatio: '4 / 3', backgroundColor: 'var(--plane-0)' }}
-      >
-        {image?.url ? (
-          <img
-            src={image.url}
-            alt={image.alt ?? ''}
-            loading="lazy"
-            decoding="async"
-            // Contained, not covered: these are observations, and the framing
-            // is part of the observation.
-            className="absolute inset-0 h-full w-full object-contain"
-          />
-        ) : (
-          <NoImage name={object.name} />
-        )}
-        {image?.credit && (
-          <span className="absolute bottom-0 right-0 bg-ink-1000/70 px-1.5 py-0.5 font-mono text-[0.55rem] text-ink-400">
-            {image.credit}
-          </span>
-        )}
+      <div className="relative mb-3 flex aspect-square items-center justify-center">
+        <BodyDisc
+          appearance={object.appearance}
+          size={sizeFor(object)}
+          className="transition-transform duration-settle ease-magnetic group-hover:scale-[1.06]"
+        />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="min-w-0 truncate font-display text-base leading-tight text-ink-100">
-            {object.name}
-          </h2>
-          <Badge className="shrink-0">{object.category}</Badge>
-        </div>
-        {object.description && (
-          <p className="line-clamp-3 text-[0.7rem] leading-relaxed text-ink-400">
-            {object.description}
-          </p>
-        )}
-        {object.source && (
-          <p className="mt-auto pt-1 font-mono text-[0.55rem] text-ink-700">{object.source}</p>
-        )}
-      </div>
+      <h3 className="font-display text-lg leading-tight text-ink-100 transition-colors group-hover:text-ink-50">
+        {object.name}
+      </h3>
+      <p className="mt-0.5 truncate font-condensed text-micro uppercase tracking-label text-ink-500">
+        {object.classification}
+      </p>
+
+      {headline && (
+        <p className="mt-1.5 font-mono text-[0.65rem] tabular-nums text-ink-400">
+          {headline.label}{' '}
+          <span className="text-ink-200">
+            {headline.display ?? formatValue(headline.value, headline.unit)}
+          </span>
+        </p>
+      )}
+
+      {object.image && (
+        <Badge variant="outline" className="mt-2">
+          photographed
+        </Badge>
+      )}
     </Link>
   );
 }
 
-/** A drawn stand-in for an object with no verified photograph. */
-function NoImage({ name }: { name: string }) {
-  // Seeded from the name, so a given object always draws the same way rather
-  // than shuffling on every render.
-  const seed = [...name].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7);
-  const hue = seed % 360;
+/**
+ * Tile diameter for an object, in pixels.
+ *
+ * Logarithmic in the real radius and clamped, so a 700,000 km star and a
+ * 250-metre asteroid can both appear in the same page without one of them being
+ * invisible.
+ */
+function sizeFor(object: CatalogObject): number {
+  const radius = Math.max(object.appearance.radius_km, 0.001);
+  const t = (Math.log10(radius) + 3) / (Math.log10(700_000) + 3);
+  return Math.round(44 + Math.max(0, Math.min(1, t)) * 76);
+}
 
-  return (
-    <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-      <svg viewBox="0 0 120 90" className="h-full w-full">
-        <circle
-          cx="60"
-          cy="45"
-          r="22"
-          fill={`hsl(${hue} 22% 38%)`}
-          opacity="0.85"
-        />
-        <circle cx="60" cy="45" r="22" fill="url(#lis-limb)" />
-        <defs>
-          <radialGradient id="lis-limb" cx="0.32" cy="0.28" r="0.85">
-            <stop offset="0" stopColor="#ffffff" stopOpacity="0.22" />
-            <stop offset="0.6" stopColor="#000000" stopOpacity="0" />
-            <stop offset="1" stopColor="#000000" stopOpacity="0.55" />
-          </radialGradient>
-        </defs>
-      </svg>
-      <span className="absolute bottom-2 font-mono text-[0.55rem] text-ink-700">
-        no verified photograph
-      </span>
-    </div>
-  );
+function formatValue(value?: number | null, unit?: string | null): string {
+  if (value === null || value === undefined) return '—';
+  const magnitude = Math.abs(value);
+  const text =
+    magnitude >= 1e6
+      ? value.toExponential(2)
+      : magnitude >= 1000
+        ? value.toLocaleString('en', { maximumFractionDigits: 0 })
+        : magnitude >= 10
+          ? value.toFixed(1)
+          : value.toFixed(2);
+  return unit ? `${text} ${unit}` : text;
 }
