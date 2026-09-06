@@ -62,7 +62,7 @@ export default function Compare() {
 
   if (!result) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <EmptyState
           title="Nothing to compare yet"
           description="Fly a mission, keep it as a baseline, change something, and fly again. Every difference is listed here with its direction."
@@ -78,7 +78,7 @@ export default function Compare() {
 
   if (!baseline) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <EmptyState
           title="Keep this flight as a baseline"
           description={`"${result.outcome}" · ${(result.summary.max_altitude_m / 1000).toFixed(1)} km apogee. Keep it, change one thing about the design, and fly again — then this page shows exactly what your change did.`}
@@ -93,7 +93,7 @@ export default function Compare() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-6 py-8">
+    <div className="mx-auto max-w-[1100px] px-4 sm:px-6 py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 hairline-b pb-5">
         <div>
           <p className="t-label mb-1">Evaluate · Comparison</p>

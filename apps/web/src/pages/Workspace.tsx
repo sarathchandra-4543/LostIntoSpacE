@@ -5,6 +5,7 @@ import { DatabaseUnavailable } from '@/components/layout/DatabaseUnavailable';
 import { auth, projects } from '@/services/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useMissionStore } from '@/stores/missionStore';
+import { displayLabel } from '@/types';
 import type { Project } from '@/types';
 
 /**
@@ -72,12 +73,12 @@ export default function Workspace() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8 space-y-6">
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-space-100 mb-1">Workspace</h1>
           <p className="text-sm text-space-400">
-            {user ? `Signed in as ${user.name || user.email}` : 'Signed in'}
+            {user ? `Signed in as ${displayLabel(user)}` : 'Signed in'}
           </p>
         </div>
         <Button size="sm" variant="ghost" onClick={signOut}>

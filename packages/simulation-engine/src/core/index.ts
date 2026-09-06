@@ -14,3 +14,5 @@ export * from './builder.js';
 export * from './validation.js';
 export * from './vehicle.js';
 export * from './catalog.js';
+export * from './destinations.js';
+export * from './mission-planning.js';

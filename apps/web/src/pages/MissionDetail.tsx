@@ -45,7 +45,7 @@ export default function MissionDetail() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <ErrorPanel title="Mission not found" message={error} />
         <Link to="/missions" className="mt-4 inline-block">
           <Button variant="outline">Back to the mission library</Button>
@@ -56,7 +56,7 @@ export default function MissionDetail() {
 
   if (!mission) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <Acquiring rows={6} />
       </div>
     );
@@ -66,7 +66,7 @@ export default function MissionDetail() {
     mission.status === 'active' ? 'nominal' : mission.status === 'failed' ? 'oxide' : 'outline';
 
   return (
-    <article className="mx-auto max-w-[1400px] px-6 py-8">
+    <article className="mx-auto max-w-[1400px] px-4 sm:px-6 py-8">
       <Link
         to="/missions"
         className="mb-6 inline-block font-condensed text-micro uppercase tracking-instrument text-ink-500 transition-colors hover:text-ink-200"

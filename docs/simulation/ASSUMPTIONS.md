@@ -31,7 +31,7 @@ implementation.
 |---|---|---|
 | **Spherical Earth**, R = 6,371,000 m. No WGS-84 flattening. | `models/constants.py` | Geodetic and geocentric latitude are treated as equal. Sub-percent effect at these fidelities. |
 | **Point-mass inverse-square field.** No J2. | `models/gravity.py` | No nodal regression, no apsidal precession. An orbit here does not drift the way a real one does. Irrelevant over a single ascent; wrong over days. |
-| **No third bodies.** No lunar or solar gravity. | — | Earth-orbit missions only. The engine cannot model a transfer to another body. |
+| **No third bodies.** No lunar or solar gravity. | — | The *integrator* models Earth-orbit flight only and still cannot fly a transfer to another body. Missions to other destinations are handled outside it, in closed form — see [Destinations and transfers](#destinations-and-transfers). |
 | **Non-rotating Earth.** | `models/frames.py` | **The largest single omission.** A real eastward equatorial launch gains roughly 465 m/s from Earth's rotation, and about 410 m/s from Cape Canaveral. This engine gives none of it, so an ascent here needs *more* delta-v than the real thing. Launch-site latitude still sets achievable inclination. |
 
 ## Atmosphere
@@ -86,6 +86,41 @@ implementation.
 | **Two-body osculating elements.** | `models/orbital.py` | Read as "the orbit you would coast into from here", not as a prediction. During powered flight they change every step. |
 | **Reported only above 100 km.** | `engine/runner.py` | Below the Kármán line the two-body solution describes a trajectory that intersects the ground and drag dominates anyway. The numbers would be noise. |
 | **"Stable orbit" means closed and clear of the surface.** No atmospheric-decay margin. | `models/orbital.py` | A 100 km "orbit" here is stable; a real one would decay within days. |
+
+## Destinations and transfers
+
+A mission now has a destination — the Moon, Mars, Titan, and so on — and the
+interface reports what reaching it costs. **None of that is integrated.** The
+integrator flies the ascent to a parking orbit and stops, exactly as before.
+Everything above that orbit is solved analytically, and the split is worth
+stating plainly because the two halves have very different standing: the ascent
+is a numerical trajectory, and the transfer is a textbook estimate.
+
+| Assumption | Where | Consequence |
+|---|---|---|
+| **Patched conics.** The transfer is treated as three separate two-body problems — Earth, then Sun, then the target — joined at their spheres of influence. | `physics/transfer.ts` | The standard first-cut method in real mission design. It ignores the gradual handover between gravity wells, which is worth a few tens of m/s on a departure. |
+| **Hohmann transfers only.** Two impulses, between circular coplanar orbits. | `physics/transfer.ts::hohmannTransfer` | The cheapest such transfer, and therefore a *lower bound* on Δv and an *upper bound* on trip time. Every real mission does better on one axis by spending on the other. |
+| **Circular, coplanar planetary orbits.** Real eccentricity and inclination are stored on each destination but are not used by the transfer solver. | `core/destinations.ts` | Mars's eccentricity of 0.093 makes real windows vary by several hundred m/s between oppositions. The figure here is the average, not the good year or the bad one. |
+| **No gravity assists.** | — | The single largest omission here. MESSENGER reached Mercury on far less Δv than the direct budget below, using six flybys over 6.6 years. The quoted Mercury figure is what a direct transfer costs, which is why it exceeds Saturn's. |
+| **Δv budgets are published reference figures**, not solver output. Each leg is a catalogued constant with its rationale attached. | `core/destinations.ts` | These are the standard mission-design numbers. They are a target to clear, not a prediction of a specific flight, and the interface says so wherever they appear. |
+| **Impulsive burns.** No finite-burn losses. | `physics/transfer.ts` | A real capture burn lasting tens of minutes loses 1–3% to steering and gravity while it fires. |
+| **Aerocapture is modelled as free.** A leg marked aerobrakeable costs zero Δv if flown on a heat shield. | `core/destinations.ts` | It is not free in reality: it costs heat-shield mass, and it is far riskier than a burn. The trade is shown as Δv-against-thermal-protection because that is the decision, but the mass penalty is not modelled. |
+| **Arrival environment is not simulated.** Surface gravity, atmosphere, temperature and terminal velocity are *reported* from published parameters; no landing is flown. | `core/mission-planning.ts` | The parachute terminal velocity quoted for each destination is `√(2βg/ρ)` for a reference ballistic coefficient of 10 kg/m², which is representative of a real entry vehicle but is not the user's vehicle. |
+| **Launch windows are stated, never enforced.** The synodic period and departure phase angle are computed and shown; the simulation does not require you to launch in one. | `core/mission-planning.ts` | You can fly a Mars mission on any date here. Reality would make you wait up to 26 months. |
+| **Ascent Δv is estimated as circular speed plus a flat 1,800 m/s** for gravity, drag and steering losses. | `core/destinations.ts::ascentDeltaV` | The middle of the real range for a launch to low Earth orbit. Your actual ascent losses come out of the integrated flight, and will differ. |
+
+The destination catalogue's *physical* data — radii, masses, rotation periods,
+atmospheres, temperatures, orbital elements — are published bulk parameters from
+NASA's planetary fact sheets and JPL Solar System Dynamics. Derived quantities
+(surface gravity, escape velocity, mean density, solar irradiance) are computed
+from those rather than stored, so they cannot disagree with their own inputs.
+
+One consequence of deriving rather than storing: for the gas giants the surface
+gravity computed from mass and mean radius runs a few percent above the quoted
+figure, because the published value is measured at the *equatorial* radius at the
+1-bar level and is reduced by rotation. Saturn is the worst case at about 7%.
+Both numbers are correct for what they describe; the derived one is the one that
+is consistent with the sphere the renderer and the physics use.
 
 ## Failures
 

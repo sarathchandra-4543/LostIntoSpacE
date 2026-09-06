@@ -37,8 +37,17 @@ export const health = {
 // ---------------------------------------------------------------------------
 
 export const auth = {
-  register: (body: { email: string; password: string; name: string }) =>
-    api.post<AuthTokens & { user?: User }>('/auth/register', body),
+  // Mirrors RegisterRequest in apps/api/src/schemas/auth.py: `username` is
+  // required (3-50 chars, letters/digits/underscore/hyphen, unique) and the
+  // human-readable name is the separate optional `display_name`. This used to
+  // send a single `name` field, which the API rejected with
+  // 422 "username: Field required" - so signup could never succeed.
+  register: (body: {
+    email: string;
+    username: string;
+    password: string;
+    display_name?: string;
+  }) => api.post<AuthTokens & { user?: User }>('/auth/register', body),
   login: (body: { email: string; password: string }) =>
     api.post<AuthTokens & { user?: User }>('/auth/login', body),
   me: () => api.get<User>('/auth/me'),

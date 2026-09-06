@@ -67,7 +67,7 @@ export default function SearchPage() {
   const types = ['MISSION', 'CONCEPT'];
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8 space-y-5">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 space-y-5">
       <header>
         <h1 className="font-display text-2xl font-semibold text-space-100 mb-1">Search</h1>
         <p className="text-sm text-space-400">

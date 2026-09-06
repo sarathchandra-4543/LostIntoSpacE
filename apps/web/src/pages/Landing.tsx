@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { ObjectField, type FieldObject } from '@/components/features/field/ObjectField';
@@ -66,14 +66,36 @@ export default function Landing() {
     };
   }, []);
 
+  /**
+   * Records already fetched, kept for the life of the page.
+   *
+   * The field is eleven bodies and a user sweeps across them repeatedly, so
+   * without this the same handful of records is re-requested every pass. Worse,
+   * each in-flight request left the panel empty while it resolved, which is the
+   * flicker the field was reported to have: approach a planet, watch the card
+   * blank, watch it come back.
+   *
+   * A record here is a published bulk parameter set. It does not change while
+   * the page is open, so caching it is correct and not merely convenient.
+   */
+  const cache = useRef(new Map<string, CatalogObject>());
+
   // The full record is fetched only when a body is actually approached, so the
   // first paint ships eleven small objects rather than every property table.
   useEffect(() => {
     if (!focused) return;
+
+    const cached = cache.current.get(focused.id);
+    if (cached) {
+      setDetail(cached);
+      return;
+    }
+
     let cancelled = false;
     catalog
       .object(focused.id)
       .then((object) => {
+        cache.current.set(object.id, object);
         if (!cancelled) setDetail(object);
       })
       .catch(() => undefined);
@@ -92,7 +114,16 @@ export default function Landing() {
     navigate('/explore');
   };
 
-  const active = focused && detail && detail.id === focused.id ? detail : null;
+  /**
+   * What the inspection panel shows.
+   *
+   * `detail` lags `focused` by one request on a body not yet cached. Rendering
+   * only on an exact match blanked the panel during that gap; keeping the last
+   * record on screen until its replacement is ready means the panel changes
+   * once, cleanly, instead of blanking and refilling.
+   */
+  const active = focused ? (detail?.id === focused.id ? detail : (detail ?? null)) : null;
+  const settling = !!focused && detail?.id !== focused.id;
 
   return (
     <div className="relative">
@@ -134,7 +165,7 @@ export default function Landing() {
           and unreadable text is worse than no field at all.
         */}
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 z-objects w-full max-w-[46rem]"
+          className="pointer-events-none absolute inset-y-0 left-0 z-objects w-full md:max-w-[46rem]"
           aria-hidden="true"
           style={{
             background:
@@ -150,7 +181,7 @@ export default function Landing() {
               Space laboratory · {summary ? `${summary.space_objects.total} objects` : 'loading'}
             </p>
 
-            <h1 className="font-display text-display-md leading-[0.95] text-ink-50 md:text-display-lg">
+            <h1 className="font-display text-4xl leading-[0.95] text-ink-50 sm:text-display-md md:text-display-lg">
               You are not reading
               <br />
               about space.
@@ -196,7 +227,7 @@ export default function Landing() {
         </div>
 
         {/* ── Inspection ──────────────────────────────────────── */}
-        <ObjectInspector object={active} loading={!!focused && !active} />
+        <ObjectInspector object={active} loading={settling} />
 
         {loadFailed && (
           <div className="absolute bottom-8 left-6 z-annotation plane px-3 py-2 md:left-12">
@@ -237,9 +268,14 @@ function ObjectInspector({
   return (
     <aside
       className={cn(
-        'pointer-events-none absolute right-0 top-1/2 z-annotation w-[22rem] -translate-y-1/2 pr-6 md:pr-12',
-        'transition-[opacity,transform] duration-settle ease-orbital',
-        visible ? 'translate-x-0 opacity-100' : 'translate-x-6 opacity-0',
+        'pointer-events-none absolute z-annotation transition-[opacity,transform] duration-settle ease-orbital',
+        // Phone: a sheet along the bottom edge, clear of the headline.
+        'inset-x-3 bottom-3',
+        // Tablet and up: anchored to the right, vertically centred.
+        'md:inset-x-auto md:bottom-auto md:right-0 md:top-1/2 md:w-[22rem] md:-translate-y-1/2 md:pr-6 lg:pr-12',
+        visible
+          ? 'translate-y-0 opacity-100 md:translate-x-0 md:-translate-y-1/2'
+          : 'translate-y-4 opacity-0 md:translate-x-6 md:-translate-y-1/2',
       )}
       aria-live="polite"
     >
@@ -252,7 +288,7 @@ function ObjectInspector({
                 alt={object.image.alt}
                 loading="lazy"
                 decoding="async"
-                className="h-36 w-full object-cover"
+                className="h-24 w-full object-cover sm:h-36"
               />
               <figcaption className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-ink-1000 to-transparent px-3 pb-1.5 pt-6">
                 <span className="font-mono text-[0.6rem] text-ink-400">
@@ -407,7 +443,7 @@ function Journey({ summary }: { summary: CatalogSummary | null }) {
   ];
 
   return (
-    <section className="relative mx-auto max-w-6xl px-6 py-24 md:px-12">
+    <section className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 md:px-12">
       <div className="mb-14 max-w-2xl">
         <p className="t-label mb-4">The loop</p>
         <h2 className="font-display text-display-sm leading-tight text-ink-50">

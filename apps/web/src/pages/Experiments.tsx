@@ -42,14 +42,14 @@ export default function Experiments() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <ErrorPanel message={error} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-8">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-8">
       <header className="mb-6 hairline-b pb-5">
         <p className="t-label mb-1">Understand · Experiments</p>
         <h1 className="font-display text-display-sm leading-none text-ink-50">

@@ -82,6 +82,19 @@ const REACH_PX = 90;
 /** How far a body can be pulled toward the pointer, as a fraction of its radius. */
 const MAX_PULL = 0.22;
 
+/**
+ * Focus hysteresis.
+ *
+ * A body takes focus at `FOCUS_ENTER` and does not give it up until it drops
+ * below `FOCUS_EXIT`. Without the gap, moving the cursor through the space
+ * between two bodies flips the selection back and forth several times a second
+ * — and because each flip fetches a record and re-renders the inspection panel,
+ * what the user sees is the panel tearing. The gap is what makes an approach
+ * settle on one body and stay there.
+ */
+const FOCUS_ENTER = 0.4;
+const FOCUS_EXIT = 0.18;
+
 export function ObjectField({
   objects,
   onFocus,
@@ -98,6 +111,28 @@ export function ObjectField({
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const related = useMemo(() => new Set(relatedIds), [relatedIds]);
+
+  /**
+   * Live inputs the render loop reads, held in refs rather than closed over.
+   *
+   * This is the fix for the glitch on approach. The loop used to list
+   * `related`, `onFocus` and `reducedMotion` among its effect dependencies, and
+   * `related` is rebuilt from the record that approaching a body *fetches*. So
+   * every approach changed the dependency, tore down the animation loop,
+   * rebuilt the canvas, reset the focus bookkeeping and fired `onFocus` again
+   * for the body already focused — a visible hitch, and a second request, every
+   * time the cursor touched a planet.
+   *
+   * Reading them through refs keeps one loop alive for the life of the
+   * component. It still sees every update on the next frame; it just no longer
+   * restarts to get them.
+   */
+  const relatedRef = useRef(related);
+  const onFocusRef = useRef(onFocus);
+  const reducedMotionRef = useRef(reducedMotion);
+  relatedRef.current = related;
+  onFocusRef.current = onFocus;
+  reducedMotionRef.current = reducedMotion;
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -183,7 +218,7 @@ export function ObjectField({
         // Parallax. A far object barely responds; a near one tracks strongly.
         // The pointer offset is measured from the field centre so the scene
         // shifts as a whole rather than everything sliding toward the cursor.
-        const parallax = reducedMotion ? 0 : (item.object.depth - 0.5) * 2;
+        const parallax = reducedMotionRef.current ? 0 : (item.object.depth - 0.5) * 2;
         const offsetX = (pointer.current.x - 0.5) * parallax * 34;
         const offsetY = (pointer.current.y - 0.5) * parallax * 22;
 
@@ -197,18 +232,21 @@ export function ObjectField({
 
         // Ease toward the target rather than tween on a timer, so an
         // interrupted gesture settles instead of playing out.
-        item.focus += (target - item.focus) * (reducedMotion ? 1 : 0.14);
+        item.focus += (target - item.focus) * (reducedMotionRef.current ? 1 : 0.14);
 
         const pullStrength = item.focus * MAX_PULL;
         const targetPullX = pullStrength * (px - baseX);
         const targetPullY = pullStrength * (py - baseY);
-        item.pullX += (targetPullX - item.pullX) * (reducedMotion ? 1 : 0.12);
-        item.pullY += (targetPullY - item.pullY) * (reducedMotion ? 1 : 0.12);
+        item.pullX += (targetPullX - item.pullX) * (reducedMotionRef.current ? 1 : 0.12);
+        item.pullY += (targetPullY - item.pullY) * (reducedMotionRef.current ? 1 : 0.12);
 
         item.x = baseX + item.pullX;
         item.y = baseY + item.pullY;
 
-        if (distance < nearestDistance && target > 0.35) {
+        // The body already focused defends its place at a lower threshold than
+        // a challenger needs to take it. That asymmetry is the hysteresis.
+        const threshold = item.object.id === lastFocusId ? FOCUS_EXIT : FOCUS_ENTER;
+        if (distance < nearestDistance && target > threshold) {
           nearestDistance = distance;
           nearest = item;
         }
@@ -219,7 +257,7 @@ export function ObjectField({
       const anyFocus = ordered.reduce((max, i) => Math.max(max, i.focus), 0);
 
       for (const item of ordered) {
-        const isRelated = related.has(item.object.id);
+        const isRelated = relatedRef.current.has(item.object.id);
         const presence =
           (0.45 + item.object.depth * 0.55) *
           (1 - anyFocus * 0.4 * (1 - item.focus) * (isRelated ? 0.3 : 1)) *
@@ -232,7 +270,7 @@ export function ObjectField({
 
         // The orbital path, revealed on approach. Only for bodies that orbit
         // something in view — a relationship, drawn.
-        if (item.focus > 0.02 && !reducedMotion) {
+        if (item.focus > 0.02 && !reducedMotionRef.current) {
           drawOrbitHint(ctx, item, width, height, item.focus);
         }
 
@@ -257,7 +295,7 @@ export function ObjectField({
       if (nextId !== lastFocusId) {
         lastFocusId = nextId;
         setFocused(nearest?.object ?? null);
-        onFocus?.(nearest?.object ?? null);
+        onFocusRef.current?.(nearest?.object ?? null);
       }
 
       frame.current = requestAnimationFrame(render);
@@ -269,7 +307,11 @@ export function ObjectField({
       cancelAnimationFrame(frame.current);
       observer.disconnect();
     };
-  }, [objects, radiusFor, onFocus, related, reducedMotion]);
+    // Deliberately not depending on `onFocus`, `related` or `reducedMotion`:
+    // they are read through refs precisely so that a change to any of them does
+    // not tear down and restart the animation loop. See the refs above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objects, radiusFor]);
 
   const handleMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();

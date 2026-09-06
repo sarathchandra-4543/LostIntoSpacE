@@ -55,14 +55,14 @@ export default function Assets() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <ErrorPanel message={error} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] px-6 py-8">
+    <div className="mx-auto max-w-[1500px] px-4 sm:px-6 py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-6 hairline-b pb-5">
         <div>
           <p className="t-label mb-1">Explore · Assets</p>

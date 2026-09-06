@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/uiStore';
@@ -145,13 +146,51 @@ const BOTTOM: readonly NavItem[] = [
 export function Sidebar() {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggle = useUIStore((s) => s.toggleSidebar);
+  const mobileOpen = useUIStore((s) => s.mobileNavOpen);
+  const setMobileOpen = useUIStore((s) => s.setMobileNavOpen);
+  const location = useLocation();
+
+  // A drawer that stays open over the page you just asked for is a trap.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname, setMobileOpen]);
+
+  // Escape closes it, as it does every other overlay in the product.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen, setMobileOpen]);
 
   return (
+    <>
+      {/*
+        The scrim, on small screens only. It is what makes the drawer read as
+        *over* the page rather than as part of it, and it gives a large,
+        obvious target for dismissing it.
+      */}
+      <div
+        onClick={() => setMobileOpen(false)}
+        aria-hidden="true"
+        className={cn(
+          'fixed inset-0 z-chrome bg-ink-1000/70 transition-opacity duration-settle lg:hidden',
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      />
+
     <aside
       className={cn(
         'fixed inset-y-0 left-0 z-chrome flex flex-col bg-[color:var(--plane-1)] hairline-r',
-        'transition-[width] duration-settle ease-instrument',
-        collapsed ? 'w-14' : 'w-60',
+        'transition-[width,transform] duration-settle ease-instrument',
+        // Below `lg` the rail is always full width and slides in from the
+        // edge: a collapsed icon rail on a phone is neither compact enough to
+        // be free nor wide enough to be legible.
+        'w-60 lg:w-auto',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        collapsed ? 'lg:w-14' : 'lg:w-60',
       )}
     >
       <NavLink
@@ -160,15 +199,15 @@ export function Sidebar() {
         title="LostIntoSpacE — home"
       >
         <MarkIcon className="h-5 w-5 shrink-0 text-signal-flame" />
-        {!collapsed && (
-          <span className="font-display text-lg leading-none text-ink-50">LostIntoSpace</span>
-        )}
+        <span className={cn('font-display text-lg leading-none text-ink-50', collapsed && 'lg:hidden')}>
+          LostIntoSpacE
+        </span>
       </NavLink>
 
       <nav className="flex-1 overflow-y-auto py-3 no-scrollbar">
         {NAV.map((group) => (
           <div key={group.label} className="mb-4">
-            {!collapsed && <p className="px-4 pb-1.5 t-label">{group.label}</p>}
+            <p className={cn('px-4 pb-1.5 t-label', collapsed && 'lg:hidden')}>{group.label}</p>
             <ul>
               {group.items.map((item) => (
                 <li key={item.path}>
@@ -189,23 +228,29 @@ export function Sidebar() {
           ))}
         </ul>
 
+        {/* Collapsing is a desktop affordance; on a phone the drawer is the
+            answer and a half-width rail would only be in the way. */}
         <button
           onClick={toggle}
           className={cn(
-            'mt-1 flex w-full items-center gap-3 px-4 py-2 text-ink-600',
+            'mt-1 hidden w-full items-center gap-3 px-4 py-2 text-ink-600 lg:flex',
             'transition-colors duration-quick hover:text-ink-300 focus-ring',
           )}
           aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
         >
           <ChevronIcon className={cn('h-4 w-4 shrink-0 transition-transform', collapsed && 'rotate-180')} />
-          {!collapsed && (
-            <span className="font-condensed text-micro uppercase tracking-instrument">
-              Collapse
-            </span>
-          )}
+          <span
+            className={cn(
+              'font-condensed text-micro uppercase tracking-instrument',
+              collapsed && 'lg:hidden',
+            )}
+          >
+            Collapse
+          </span>
         </button>
       </div>
     </aside>
+    </>
   );
 }
 
@@ -239,7 +284,7 @@ function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
             aria-hidden="true"
           />
           <Icon className="h-4 w-4 shrink-0" />
-          {!collapsed && <span className="truncate text-sm">{item.label}</span>}
+          <span className={cn('truncate text-sm', collapsed && 'lg:hidden')}>{item.label}</span>
         </>
       )}
     </NavLink>
@@ -271,11 +316,21 @@ function stroke(className?: string) {
   };
 }
 
+/**
+ * The product mark: a vehicle on ascent over the limb of the world it is
+ * leaving. The same shape as the favicon, reduced to strokes on the 16-unit
+ * grid the rest of these icons use.
+ */
 function MarkIcon({ className }: IconProps) {
   return (
     <svg {...stroke(className)}>
-      <circle cx="8" cy="8" r="3.2" />
-      <ellipse cx="8" cy="8" rx="7" ry="2.6" transform="rotate(-24 8 8)" />
+      {/* The limb, cropped by the viewBox so it reads as a horizon. */}
+      <path d="M1 12.6a7.6 7.6 0 0 1 14 0" />
+      {/* The gravity turn: vertical off the pad, then bending downrange. */}
+      <path d="M5.2 11.4c0-2.6.5-4.6 2.2-6" strokeDasharray="1.4 1.4" />
+      {/* The vehicle: nose, body, fins. */}
+      <path d="M10.6 1.6c1 1.1 1.5 2.4 1.5 3.7v3.2H9.1V5.3c0-1.3.5-2.6 1.5-3.7Z" />
+      <path d="M9.1 6.6 7.6 8.1v1.6M12.1 6.6l1.5 1.5v1.6" />
     </svg>
   );
 }

@@ -55,7 +55,7 @@ export default function ObjectDetail() {
 
   if (dbDown) {
     return (
-      <div className="mx-auto max-w-2xl px-6 py-12">
+      <div className="mx-auto max-w-2xl px-4 sm:px-6 py-12">
         <DatabaseUnavailable what="This object" />
       </div>
     );
@@ -63,7 +63,7 @@ export default function ObjectDetail() {
 
   if (error || !object) {
     return (
-      <div className="mx-auto max-w-2xl px-6 py-16 text-center space-y-4">
+      <div className="mx-auto max-w-2xl px-4 sm:px-6 py-16 text-center space-y-4">
         <h1 className="font-display text-lg text-space-100">Object not found</h1>
         <p className="text-sm text-space-400">{error ?? 'No object with that identifier.'}</p>
         <Link to="/explore">
@@ -74,8 +74,8 @@ export default function ObjectDetail() {
   }
 
   const properties = {
-    ...(object.physical_properties ?? {}),
-    ...(object.orbital_elements ?? {}),
+    ...(object.physical_data ?? {}),
+    ...(object.orbital_data ?? {}),
   } as Record<string, unknown>;
 
   const rows = Object.entries(properties).filter(
@@ -83,7 +83,7 @@ export default function ObjectDetail() {
   );
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8 space-y-5">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8 space-y-5">
       <Link to="/explore" className="text-2xs text-accent-cyan hover:underline">
         ← Explore
       </Link>
@@ -93,16 +93,34 @@ export default function ObjectDetail() {
           <h1 className="font-display text-2xl font-semibold text-space-100 mb-1">
             {object.name}
           </h1>
-          <Badge>{object.object_type}</Badge>
+          <Badge>{object.category}</Badge>
         </div>
       </header>
 
-      {object.image_url && (
-        <img
-          src={object.image_url}
-          alt={object.name}
-          className="w-full max-h-80 object-cover rounded-lg border border-space-800"
-        />
+      {object.images?.[0]?.url && (
+        <figure className="overflow-hidden rounded-panel" style={{ backgroundColor: 'var(--plane-0)' }}>
+          {/*
+            Contained rather than covered, and against the ground rather than
+            cropped to a band. A scientific image's framing is part of the
+            observation — a tall Hubble frame trimmed to a wide strip loses
+            exactly the structure it was taken to show.
+          */}
+          <img
+            src={object.images[0].url}
+            alt={object.images[0].alt || object.name}
+            loading="lazy"
+            decoding="async"
+            className="mx-auto block max-h-[28rem] w-full object-contain"
+          />
+          {(object.images[0].credit || object.images[0].title) && (
+            <figcaption className="px-3 py-2 font-mono text-[0.6rem] leading-relaxed text-ink-500 hairline-t">
+              {object.images[0].title}
+              {object.images[0].credit && (
+                <span className="text-ink-600"> · {object.images[0].credit}</span>
+              )}
+            </figcaption>
+          )}
+        </figure>
       )}
 
       {object.description && (
@@ -135,8 +153,8 @@ export default function ObjectDetail() {
       <Card>
         <h2 className="font-display text-sm font-semibold text-space-200 mb-1.5">Provenance</h2>
         <p className="text-2xs text-space-400 leading-relaxed">
-          {object.source_name
-            ? `Sourced from ${object.source_name}.`
+          {object.source
+            ? `Sourced from ${object.source}.`
             : 'No source recorded for this record.'}{' '}
           Figures are as published by the source at ingestion time and are not re-derived here.
         </p>

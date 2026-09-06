@@ -41,7 +41,7 @@ export default function Evaluation() {
 
   if (!result || !evaluation) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <EmptyState
           title="No flight to evaluate"
           description="Fly a mission and its report appears here — scored across nine categories, with the measurement behind every number."
@@ -59,7 +59,7 @@ export default function Evaluation() {
   const overallTone = TONE_FOR_SCORE(evaluation.overall_score);
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6">
+    <div className="mx-auto max-w-[1400px] px-4 sm:px-6 py-6">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-6 hairline-b pb-4">
         <div>
           <p className="t-label mb-1">Evaluate · Mission report</p>

@@ -90,8 +90,24 @@ export interface SimMission {
   objective: string;
   target: {
     type: MissionType;
+    /** The orbit the *ascent* aims at. The only field the integrator reads. */
     target_altitude_km: number;
     inclination_deg?: number | null;
+    /**
+     * Where the vehicle is ultimately going.
+     *
+     * The trajectory above the parking orbit is solved in closed form by the
+     * engine's patched-conic transfer solver rather than integrated on the
+     * server, so these fields are carried and recorded rather than flown. They
+     * are what lets failure analysis say "1,400 m/s short of Mars" instead of
+     * "1,400 m/s short", and what lets a stored run still be explained later.
+     */
+    destination_id?: string | null;
+    destination_name?: string | null;
+    /** Δv required above the parking orbit to complete the trip. Unit: m/s */
+    destination_delta_v_ms?: number;
+    /** One-way cruise duration for the reference transfer. Unit: s */
+    transfer_time_s?: number;
   };
   launch_site: LaunchSite;
   environment: {

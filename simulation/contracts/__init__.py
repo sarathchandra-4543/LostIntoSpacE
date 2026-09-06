@@ -227,10 +227,42 @@ class EnvironmentConfig(BaseModel):
 
 
 class MissionTarget(BaseModel):
-    """Mission target."""
+    """Mission target.
+
+    ``target_altitude_km`` is the orbit the *ascent* aims at, and it is the only
+    field the integrator reads. The destination fields describe where the
+    vehicle is ultimately going, which is a mission-planning question rather
+    than an ascent-physics one: the trajectory above the parking orbit is solved
+    in closed form by ``packages/simulation-engine`` (patched conics, see
+    ``physics/transfer.ts``) rather than integrated here.
+
+    They are carried on the config anyway, and recorded with the run, because
+    every consumer downstream needs them. Failure analysis has to be able to say
+    "1,400 m/s short of Mars" rather than "1,400 m/s short"; the AI assistant
+    has to know what the flight was *for* before it can explain it; and a stored
+    run that has lost its destination cannot be re-explained later.
+    """
     type: MissionType
-    target_altitude_km: float = Field(ge=0, description="Target altitude. Unit: km")
+    target_altitude_km: float = Field(ge=0, description="Ascent target altitude. Unit: km")
     inclination_deg: float | None = Field(default=None, description="Target inclination. Unit: degrees")
+
+    #: Destination id from the engine's catalogue — "mars", "luna", "titan".
+    #: None means the mission is the ascent itself.
+    destination_id: Optional[str] = Field(
+        default=None, description="Destination catalogue id, or None for an ascent-only flight"
+    )
+    destination_name: Optional[str] = Field(
+        default=None, description="Human-readable destination name, for reports and analysis"
+    )
+    #: Total Δv needed above the parking orbit to complete the trip, from the
+    #: destination's own budget. Unit: m/s.
+    destination_delta_v_ms: float = Field(
+        default=0.0, ge=0, description="Δv required above the parking orbit. Unit: m/s"
+    )
+    #: One-way cruise duration for the reference transfer. Unit: s.
+    transfer_time_s: float = Field(
+        default=0.0, ge=0, description="Reference one-way cruise duration. Unit: s"
+    )
 
     model_config = ConfigDict(frozen=True)
 

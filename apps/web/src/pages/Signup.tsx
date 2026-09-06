@@ -10,7 +10,13 @@ import { Starfield } from '@/components/features/explore/Starfield';
  *
  * The password rule is stated up front rather than only after a rejection: the
  * backend enforces a minimum length, and discovering that by failing is a poor
- * first interaction.
+ * first interaction. The same reasoning applies to the username charset.
+ *
+ * Name and username are separate fields because the API treats them as
+ * separate things: `username` is a unique handle constrained to letters,
+ * digits, underscore and hyphen, while the display name is free text. Deriving
+ * one from the other would either produce invalid usernames (a typed name
+ * usually contains a space) or silently collide with an existing handle.
  */
 export default function Signup() {
   const navigate = useNavigate();
@@ -18,6 +24,7 @@ export default function Signup() {
   const continueAsGuest = useAuthStore((s) => s.continueAsGuest);
 
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +35,12 @@ export default function Signup() {
     setPending(true);
     setError(null);
     try {
-      const tokens = await auth.register({ name, email, password });
+      const tokens = await auth.register({
+        email,
+        username,
+        password,
+        display_name: name || undefined,
+      });
       login(tokens.user ?? null, tokens.access_token, tokens.refresh_token);
       if (!tokens.user) {
         try {
@@ -67,6 +79,22 @@ export default function Signup() {
               required
               autoComplete="name"
             />
+          </label>
+
+          <label className="block">
+            <span className="text-2xs text-space-500 block mb-1">Username</span>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              minLength={3}
+              maxLength={50}
+              pattern="[A-Za-z0-9_-]+"
+              autoComplete="username"
+            />
+            <span className="text-2xs text-space-600 mt-1 block">
+              3-50 characters: letters, digits, underscore or hyphen.
+            </span>
           </label>
 
           <label className="block">

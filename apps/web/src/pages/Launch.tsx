@@ -4,6 +4,16 @@ import { createStockRegistry } from '@lostintospace/simulation-engine/core/catal
 import { analyzeRocket } from '@lostintospace/simulation-engine/core/builder';
 import { vehicleFromAnalysis } from '@lostintospace/simulation-engine/core/vehicle';
 
+import {
+  getDestination,
+  type Destination,
+} from '@lostintospace/simulation-engine/core/destinations';
+import { assessMission } from '@lostintospace/simulation-engine/core/mission-planning';
+
+import {
+  DestinationBrief,
+  DestinationPicker,
+} from '@/components/features/launch/DestinationPicker';
 import { WeatherPanel } from '@/components/features/launch/WeatherPanel';
 import {
   Badge,
@@ -17,7 +27,7 @@ import {
   Select,
   StatusDot,
 } from '@/components/ui';
-import { MISSION_PROFILES, buildSimConfig } from '@/lib/simConfig';
+import { ascentForDestination, buildSimConfig } from '@/lib/simConfig';
 import {
   catalog,
   environment as environmentApi,
@@ -127,6 +137,38 @@ export default function Launch() {
 
   const site = sites.find((s) => s.id === siteId) ?? null;
 
+  const destination: Destination | null = getDestination(mission.destinationId) ?? null;
+
+  /**
+   * The vehicle measured against the trip.
+   *
+   * Recomputed from the design's own staging analysis, so it tracks every edit
+   * in the builder rather than a number captured when the destination was
+   * chosen. Null until there is a design to measure.
+   */
+  const feasibility = useMemo(
+    () => (destination && analysis ? assessMission(destination, analysis.totalDeltaV_ms) : null),
+    [destination, analysis],
+  );
+
+  /**
+   * Choosing a destination also sets the ascent.
+   *
+   * A destination is not an annotation on a flight that was going to happen
+   * anyway: it fixes the parking orbit the transfer departs from, and therefore
+   * the altitude and guidance the ascent has to fly. Leaving the user to set
+   * those separately would let them pick Mars and then fly a vertical hop,
+   * which cannot begin a transfer to anywhere.
+   *
+   * The mission name is left alone. It is the one field here that belongs to
+   * the user rather than to the physics.
+   */
+  const selectDestination = (destinationId: string) => {
+    const chosen = getDestination(destinationId);
+    if (!chosen) return;
+    updateMission({ destinationId, ...ascentForDestination(chosen) });
+  };
+
   const refreshWeather = () => {
     setWeatherLoading(true);
     environmentApi
@@ -144,7 +186,12 @@ export default function Launch() {
 
   const checks = useMemo(() => {
     if (!analysis) return [];
-    const targetDeltaV = estimateRequiredDeltaV(mission.targetAltitudeKm, mission.missionType);
+    // The Δv the mission actually costs, from the destination's own budget
+    // rather than from an altitude. Falling back to the ascent-only estimate
+    // keeps a mission with no destination checkable.
+    const targetDeltaV =
+      feasibility?.requiredDeltaV_ms ??
+      estimateRequiredDeltaV(mission.targetAltitudeKm, mission.missionType);
     const inclination = site?.min_inclination_deg ?? Math.abs(mission.launchSite.latitude_deg);
 
     return [
@@ -176,10 +223,39 @@ export default function Launch() {
       },
       {
         id: 'deltav',
-        label: 'Δv budget covers the target',
+        label: destination
+          ? `Δv budget covers the trip to ${destination.name}`
+          : 'Δv budget covers the target',
         pass: analysis.totalDeltaV_ms >= targetDeltaV,
         detail: `${analysis.totalDeltaV_ms.toFixed(0)} m/s available, about ${targetDeltaV.toFixed(0)} m/s needed`,
       },
+      // Aerobraking is not a detail: at Mars it is worth about 2 km/s, which is
+      // often the whole difference between a design that closes and one that
+      // does not. It deserves to be surfaced as its own line rather than
+      // hidden inside the budget.
+      ...(feasibility && !feasibility.reachable && feasibility.reachableWithAerobraking
+        ? [
+            {
+              id: 'aerobrake',
+              label: 'Closes if the arrival is flown on a heat shield',
+              pass: true,
+              detail: `${feasibility.requiredAerobraked_ms.toFixed(0)} m/s with aerocapture, against ${feasibility.requiredDeltaV_ms.toFixed(0)} m/s propulsive`,
+            },
+          ]
+        : []),
+      ...(feasibility
+        ? feasibility.requirements
+            .filter((requirement) => requirement.mandatory)
+            .map((requirement) => ({
+              id: `requires-${requirement.id}`,
+              label: `${destination?.name ?? 'The destination'} requires: ${requirement.label.toLowerCase()}`,
+              // These are stated, not enforced. The builder does not yet model
+              // whether a given part satisfies a given requirement, and
+              // pretending otherwise would be a check that lies.
+              pass: true,
+              detail: requirement.reason,
+            }))
+        : []),
       {
         id: 'stability',
         label: 'Statically stable when full',
@@ -216,7 +292,7 @@ export default function Launch() {
             : 'No payload — the flight still runs',
       },
     ];
-  }, [analysis, mission, site, weather]);
+  }, [analysis, mission, site, weather, destination, feasibility]);
 
   const blocking = checks.filter((c) => !c.pass);
 
@@ -231,6 +307,7 @@ export default function Launch() {
         objective: mission.objective,
         targetAltitudeKm: mission.targetAltitudeKm,
         missionType: mission.missionType,
+        destinationId: mission.destinationId,
         launchSite: mission.launchSite,
         guidanceMode: mission.guidanceMode,
         launchAzimuthDeg: mission.launchAzimuthDeg,
@@ -250,7 +327,7 @@ export default function Launch() {
 
   if (!design || !analysis) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <EmptyState
           title="No rocket to launch"
           description="Build a vehicle first, or start from one of the reference designs in the Rocket Lab."
@@ -265,7 +342,7 @@ export default function Launch() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6">
+    <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
       <header className="mb-5 hairline-b pb-4">
         <p className="t-label mb-1">Simulate · Launch setup</p>
         <h1 className="font-display text-3xl leading-none text-ink-50">{mission.name}</h1>
@@ -277,7 +354,7 @@ export default function Launch() {
 
       {error && <ErrorPanel message={error} className="mb-4" onRetry={() => setError(null)} />}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
           {/* ── Launch site ───────────────────────────────────── */}
           <SectionRule label="Launch site" />
@@ -390,42 +467,22 @@ export default function Launch() {
             </div>
 
             <div>
-              <span className="t-label mb-2 block">Profile</span>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {MISSION_PROFILES.map((profile) => {
-                  const selected =
-                    mission.missionType === profile.id &&
-                    mission.targetAltitudeKm === profile.altitude_km;
-                  return (
-                    <button
-                      key={`${profile.id}-${profile.altitude_km}`}
-                      onClick={() =>
-                        updateMission({
-                          missionType: profile.id,
-                          targetAltitudeKm: profile.altitude_km,
-                          guidanceMode: profile.guidance,
-                        })
-                      }
-                      className={cn(
-                        'rounded-instrument border p-3 text-left transition-colors duration-quick focus-ring',
-                        selected
-                          ? 'border-signal-flame/50 bg-signal-flame/8'
-                          : 'border-ink-800 bg-ink-900 hover:border-ink-600',
-                      )}
-                    >
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-sm text-ink-100">{profile.label}</span>
-                        <span className="font-mono text-micro text-ink-500">
-                          {profile.altitude_km} km
-                        </span>
-                      </div>
-                      <p className="mt-1 text-tiny leading-relaxed text-ink-500">
-                        {profile.description}
-                      </p>
-                    </button>
-                  );
-                })}
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
+                <span className="t-label">Destination</span>
+                <span className="font-mono text-[0.6rem] text-ink-600">
+                  Δv above the parking orbit · cruise time
+                </span>
               </div>
+              <DestinationPicker
+                value={mission.destinationId}
+                onChange={selectDestination}
+                availableDeltaV_ms={analysis?.totalDeltaV_ms ?? null}
+              />
+              <p className="mt-2 text-[0.65rem] leading-relaxed text-ink-600">
+                A green mark means your current vehicle has the Δv for that trip. The ascent is
+                flown here; everything above the parking orbit is solved in closed form, and the
+                brief below says what the choice costs.
+              </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -459,6 +516,23 @@ export default function Launch() {
               </label>
             </div>
           </Panel>
+
+          {/* ── The brief ─────────────────────────────────────── */}
+          {destination && (
+            <>
+              <SectionRule
+                label={destination.name}
+                aside={
+                  <span className="font-mono text-micro text-ink-600">
+                    what going there costs
+                  </span>
+                }
+              />
+              <Panel>
+                <DestinationBrief destination={destination} feasibility={feasibility} />
+              </Panel>
+            </>
+          )}
 
           {/* ── Pre-flight ────────────────────────────────────── */}
           <SectionRule

@@ -107,7 +107,7 @@ export default function Assistant() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8 space-y-5">
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 space-y-5">
       <header>
         <div className="flex items-center gap-3 mb-1">
           <h1 className="font-display text-2xl font-semibold text-space-100">AI Assistant</h1>

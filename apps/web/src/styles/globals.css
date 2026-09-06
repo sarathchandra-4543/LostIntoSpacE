@@ -22,10 +22,21 @@
     --plane-2: #141311;
     --plane-3: #1c1a17;
 
-    /* Hairlines. The primary structural device in this interface. */
-    --rule-faint: rgba(228, 221, 211, 0.06);
-    --rule: rgba(228, 221, 211, 0.11);
-    --rule-strong: rgba(228, 221, 211, 0.2);
+    /*
+     * Hairlines. The primary structural device in this interface.
+     *
+     * These sit deliberately low. A border is the loudest way to separate two
+     * things and the least informative, so the resting state of every edge in
+     * the product is *barely there* and it firms up only when a surface is
+     * actually being pointed at. `--rule-hover` is that firmed-up value, and
+     * `--rule-active` marks a genuine selection — the one case where an edge
+     * is carrying information rather than just drawing a box.
+     */
+    --rule-faint: rgba(228, 221, 211, 0.035);
+    --rule: rgba(228, 221, 211, 0.065);
+    --rule-strong: rgba(228, 221, 211, 0.12);
+    --rule-hover: rgba(228, 221, 211, 0.16);
+    --rule-active: rgba(228, 104, 46, 0.42);
 
     /* The illumination model: one light source, warm, from upper left. */
     --lit: rgba(255, 244, 226, 0.9);
@@ -145,6 +156,64 @@
     background-size: theme('backgroundSize.plate');
     border: 1px solid var(--rule);
     border-radius: theme('borderRadius.panel');
+  }
+
+  /**
+   * A glass panel — the interactive surface.
+   *
+   * Used wherever a plane is also a *target*: a catalogue card, a component
+   * tile, a result row. It rests with almost no edge at all and firms up under
+   * the pointer, which is the behaviour the brief asked for — an outline that
+   * is permanently on is noise, because it is saying "you can click this"
+   * about twenty things at once.
+   *
+   * The lift is a background change plus a one-pixel edge. There is no scale
+   * transform: cards that grow on hover shove their neighbours around and make
+   * a grid feel unstable.
+   */
+  .glass-panel {
+    background-color: var(--plane-1);
+    border: 1px solid var(--rule-faint);
+    border-radius: theme('borderRadius.panel');
+    transition:
+      border-color theme('transitionDuration.quick') theme('transitionTimingFunction.instrument'),
+      background-color theme('transitionDuration.quick') theme('transitionTimingFunction.instrument');
+  }
+
+  .glass-panel:hover {
+    background-color: var(--plane-2);
+    border-color: var(--rule-hover);
+  }
+
+  /** The selected state of a glass panel. The only edge allowed to be loud. */
+  .glass-panel[aria-pressed='true'],
+  .glass-panel[data-selected='true'] {
+    border-color: var(--rule-active);
+    background-color: rgba(228, 104, 46, 0.06);
+  }
+
+  /**
+   * A quiet chip — filters, category pills, segmented controls.
+   *
+   * Borderless at rest. The old treatment gave every chip a full-contrast
+   * outline, so a row of twelve filters read as twelve competing buttons.
+   */
+  .chip {
+    @apply rounded-instrument px-2.5 py-1 text-tiny transition-colors duration-quick focus-ring;
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: theme('colors.ink.400');
+  }
+
+  .chip:hover {
+    background-color: var(--plane-2);
+    color: theme('colors.ink.200');
+  }
+
+  .chip[aria-pressed='true'] {
+    background-color: rgba(228, 104, 46, 0.1);
+    border-color: var(--rule-active);
+    color: theme('colors.signal.flame-bright');
   }
 
   /* ── Structure ────────────────────────────────────────────── */

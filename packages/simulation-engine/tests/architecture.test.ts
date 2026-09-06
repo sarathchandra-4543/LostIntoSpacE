@@ -63,9 +63,15 @@ function isExternal(specifier: string): boolean {
   return !specifier.startsWith('.') && !specifier.startsWith('/');
 }
 
-/** Which layer a file belongs to. */
+/**
+ * Which layer a file belongs to.
+ *
+ * `relative` returns platform separators, so this splits on both. Splitting on
+ * '/' alone made every file its own layer on Windows, and the React boundary
+ * check could never pass there however correct the source was.
+ */
 function layerOf(path: string): string {
-  return relative(SRC, path).split('/')[0] ?? '';
+  return relative(SRC, path).split(/[\\/]/)[0] ?? '';
 }
 
 describe('layer boundaries — external dependencies', () => {

@@ -29,6 +29,7 @@ export default function MissionControl() {
   const mission = useMissionStore((s) => s.mission);
   const design = useMissionStore((s) => s.design);
   const meta = useMissionStore((s) => s.resultMeta);
+  const lastConfig = useMissionStore((s) => s.lastConfig);
 
   const telemetry = result?.telemetry ?? [];
   const playback = useTelemetryPlayback(telemetry, { autoPlay: true });
@@ -42,7 +43,7 @@ export default function MissionControl() {
 
   if (!result) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <EmptyState
           title="No flight to monitor"
           description="Configure a launch and run it, and the telemetry will appear here."
@@ -60,7 +61,7 @@ export default function MissionControl() {
   const failed = result.outcome === 'failure' || result.failures.length > 0;
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 py-6">
+    <div className="mx-auto max-w-[1600px] px-4 sm:px-6 py-6">
       <header className="flex flex-wrap items-start justify-between gap-4 mb-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -99,7 +100,7 @@ export default function MissionControl() {
         </div>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Viewport + controls */}
         <div className="space-y-4">
           <div className="glass-panel overflow-hidden">
@@ -116,7 +117,10 @@ export default function MissionControl() {
               <FlightViewport
                 telemetry={telemetry}
                 index={playback.index}
-                className="h-[420px] w-full"
+                // The vehicle from the config that produced this flight, so the
+                // model on screen has the dimensions that were actually flown.
+                vehicle={lastConfig?.vehicle ?? null}
+                className="h-[320px] w-full sm:h-[420px] lg:h-[480px]"
               />
             </Suspense>
 

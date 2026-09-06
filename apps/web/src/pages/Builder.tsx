@@ -4,20 +4,19 @@ import { createStockRegistry } from '@lostintospace/simulation-engine/core/catal
 import { useRocketBuilder } from '@lostintospace/simulation-engine/adapters/useRocketBuilder';
 import { createRocket } from '@lostintospace/simulation-engine/core/rocket-design';
 import type {
-  ComponentCategory,
   ComponentDef,
   EngineDef,
   FinDef,
   NoseConeDef,
 } from '@lostintospace/simulation-engine/core/component-types';
 
+import { PartsBrowser } from '@/components/features/build/PartsBrowser';
 import { RocketProfile } from '@/components/features/build/RocketProfile';
 import { ThrustCurve } from '@/components/features/build/ThrustCurve';
 import {
   Badge,
   Button,
   Gauge,
-  Input,
   Panel,
   Readout,
   SectionRule,
@@ -43,41 +42,6 @@ import { cn, formatMass } from '@/lib/utils';
  * printed as a number completely fails to convey.
  */
 
-/** Categories grouped the way a build actually proceeds. */
-const GROUPS: readonly { label: string; categories: readonly ComponentCategory[] }[] = [
-  { label: 'Airframe', categories: ['nose_cone', 'fairing', 'body', 'coupler', 'interstage'] },
-  { label: 'Propulsion', categories: ['engine', 'motor_mount', 'fuel_tank', 'oxidizer_tank'] },
-  { label: 'Aero', categories: ['fin'] },
-  { label: 'Structure', categories: ['bulkhead', 'centering_ring'] },
-  { label: 'Avionics', categories: ['avionics', 'guidance', 'sensor', 'battery'] },
-  { label: 'Mission', categories: ['payload', 'decoupler'] },
-  { label: 'Recovery', categories: ['parachute', 'heat_shield', 'landing_leg'] },
-];
-
-const CATEGORY_LABEL: Partial<Record<ComponentCategory, string>> = {
-  nose_cone: 'Nose cones',
-  fairing: 'Fairings',
-  body: 'Body tubes',
-  coupler: 'Couplers',
-  interstage: 'Interstages',
-  engine: 'Motors and engines',
-  motor_mount: 'Motor mounts',
-  fuel_tank: 'Fuel tanks',
-  oxidizer_tank: 'Oxidiser tanks',
-  fin: 'Fin sets',
-  bulkhead: 'Bulkheads',
-  centering_ring: 'Centering rings',
-  avionics: 'Flight computers',
-  guidance: 'Guidance',
-  sensor: 'Sensors',
-  battery: 'Batteries',
-  payload: 'Payloads',
-  decoupler: 'Separators',
-  parachute: 'Parachutes',
-  heat_shield: 'Heat shields',
-  landing_leg: 'Landing legs',
-};
-
 export default function Builder() {
   const navigate = useNavigate();
   const storedDesign = useMissionStore((s) => s.design);
@@ -94,8 +58,6 @@ export default function Builder() {
 
   const builder = useRocketBuilder({ initialDesign, registry });
   const [activeStage, setActiveStage] = useState(0);
-  const [activeGroup, setActiveGroup] = useState<string>(GROUPS[0]!.label);
-  const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [cutaway, setCutaway] = useState(false);
 
@@ -111,23 +73,9 @@ export default function Builder() {
   const stageCount = builder.design.stages.length;
   const canFly = validation.valid && stageCount > 0;
 
-  const group = GROUPS.find((g) => g.label === activeGroup) ?? GROUPS[0]!;
-  const available = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const items: { category: ComponentCategory; components: ComponentDef[] }[] = [];
-    for (const category of group.categories) {
-      const components = registry
-        .listByCategory(category as never)
-        .filter(
-          (c: ComponentDef) =>
-            !needle ||
-            c.name.toLowerCase().includes(needle) ||
-            c.description.toLowerCase().includes(needle),
-        );
-      if (components.length > 0) items.push({ category, components });
-    }
-    return items;
-  }, [registry, group, query]);
+  // The browser does its own classification and filtering, so it wants the
+  // whole catalogue rather than a pre-sliced view of it.
+  const allComponents = useMemo(() => registry.listAll(), [registry]);
 
   const selectedComponent = selected
     ? builder.design.components.find((c) => c.instanceId === selected)
@@ -138,8 +86,8 @@ export default function Builder() {
   const twr = analysis.liftoffTWR;
 
   return (
-    <div className="mx-auto max-w-[1600px] px-6 py-6">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 hairline-b pb-4">
+    <div className="mx-auto max-w-[1600px] px-4 sm:px-6 py-6">
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 hairline-b pb-4">
         <div>
           <p className="t-label mb-1">Build · Vehicle assembly</p>
           <h1 className="font-display text-3xl leading-none text-ink-50">
@@ -154,12 +102,21 @@ export default function Builder() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={builder.undo} disabled={!builder.canUndo}>
-            Undo
-          </Button>
-          <Button size="sm" variant="ghost" onClick={builder.redo} disabled={!builder.canRedo}>
-            Redo
-          </Button>
+          <div
+            className="flex overflow-hidden rounded-instrument"
+            style={{ backgroundColor: 'var(--plane-1)' }}
+          >
+            <HistoryButton
+              action="undo"
+              onClick={builder.undo}
+              disabled={!builder.canUndo}
+            />
+            <HistoryButton
+              action="redo"
+              onClick={builder.redo}
+              disabled={!builder.canRedo}
+            />
+          </div>
           <Button
             size="sm"
             onClick={() => navigate('/launch')}
@@ -177,68 +134,19 @@ export default function Builder() {
         </Panel>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)_320px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[340px_minmax(0,1fr)_320px]">
         {/* ── Parts bin ─────────────────────────────────────── */}
-        <aside className="space-y-3">
+        <aside className="space-y-3 lg:col-span-2 xl:col-span-1">
           <SectionRule
             label="Parts"
             aside={<span className="font-mono text-micro text-ink-600">{registry.size}</span>}
           />
 
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search parts…"
-            aria-label="Search components"
+          <PartsBrowser
+            components={allComponents}
+            enabled={stageCount > 0}
+            onAdd={(defId) => builder.addComponent(defId, activeStage)}
           />
-
-          <div className="flex flex-wrap gap-1">
-            {GROUPS.map((g) => (
-              <button
-                key={g.label}
-                onClick={() => setActiveGroup(g.label)}
-                className={cn(
-                  'rounded-instrument border px-2 py-0.5 font-condensed text-micro uppercase tracking-label',
-                  'transition-colors duration-quick ease-instrument focus-ring',
-                  activeGroup === g.label
-                    ? 'border-signal-flame/40 bg-signal-flame/10 text-signal-flame-bright'
-                    : 'border-ink-700 bg-ink-850 text-ink-500 hover:text-ink-200',
-                )}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
-            {available.map(({ category, components }) => (
-              <div key={category}>
-                <h3 className="t-label mb-1.5">{CATEGORY_LABEL[category] ?? category}</h3>
-                <ul className="space-y-1">
-                  {components.map((component) => (
-                    <li key={component.id}>
-                      <PartButton
-                        component={component}
-                        disabled={stageCount === 0}
-                        onAdd={() => builder.addComponent(component.id, activeStage)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-            {available.length === 0 && (
-              <p className="py-6 text-center text-xs text-ink-500">
-                Nothing in this group matches “{query}”.
-              </p>
-            )}
-          </div>
-
-          {stageCount === 0 && (
-            <p className="text-tiny leading-relaxed text-signal-caution">
-              Add a stage before adding components — every part has to belong to one.
-            </p>
-          )}
         </aside>
 
         {/* ── The vehicle ───────────────────────────────────── */}
@@ -595,69 +503,6 @@ export default function Builder() {
   );
 }
 
-/** One part in the picker, showing the number that distinguishes it from its siblings. */
-function PartButton({
-  component,
-  disabled,
-  onAdd,
-}: {
-  component: ComponentDef;
-  disabled: boolean;
-  onAdd: () => void;
-}) {
-  return (
-    <button
-      onClick={onAdd}
-      disabled={disabled}
-      title={component.description}
-      className={cn(
-        'w-full rounded-instrument border border-ink-800 bg-ink-900 px-2.5 py-2 text-left',
-        'transition-colors duration-quick ease-instrument focus-ring',
-        'hover:border-signal-flame/40 hover:bg-ink-850',
-        'disabled:pointer-events-none disabled:opacity-40',
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-xs text-ink-200">{component.name}</span>
-        <span className="shrink-0 font-mono text-micro text-ink-500">
-          {component.mass_kg < 1
-            ? `${(component.mass_kg * 1000).toFixed(0)} g`
-            : `${component.mass_kg.toFixed(0)} kg`}
-        </span>
-      </div>
-      <p className="mt-0.5 truncate font-mono text-[0.6rem] text-ink-600">
-        {partSummary(component)}
-      </p>
-    </button>
-  );
-}
-
-/** The one line that says what makes this part different from the next one. */
-function partSummary(component: ComponentDef): string {
-  switch (component.category) {
-    case 'nose_cone':
-    case 'fairing': {
-      const def = component as NoseConeDef;
-      const shape = (def.shape ?? '').replace(/_/g, ' ');
-      return `${shape} · fineness ${def.finenessRatio?.toFixed(1) ?? '—'} · Cd ${def.dragCoefficient?.toFixed(2) ?? '—'}`;
-    }
-    case 'fin': {
-      const def = component as FinDef;
-      const shape = (def.shape ?? 'trapezoidal').replace(/_/g, ' ');
-      return `${def.finCount}× ${shape} · span ${def.span_m.toFixed(2)} m`;
-    }
-    case 'engine': {
-      const def = component as EngineDef;
-      if (def.motorClass && def.totalImpulse_Ns) {
-        return `class ${def.motorClass} · ${Math.round(def.totalImpulse_Ns)} N·s · ${def.burnTime_s?.toFixed(1)} s`;
-      }
-      return `${(def.thrustSeaLevel_N / 1000).toFixed(0)} kN · Isp ${def.isp_seaLevel_s} s`;
-    }
-    default:
-      return `${component.length_m.toFixed(2)} m × ⌀${component.outerDiameter_m.toFixed(2)} m`;
-  }
-}
-
 /** Category-specific detail for the inspector. */
 function ComponentSpecifics({ def }: { def: ComponentDef }) {
   if (def.category === 'engine') {
@@ -834,5 +679,59 @@ function MetricRow({
       )}
       {note && <p className="text-tiny leading-relaxed text-ink-500">{note}</p>}
     </div>
+  );
+}
+
+
+/**
+ * Undo and redo, as symbols.
+ *
+ * Two arrows rather than two words. They sit next to each other constantly and
+ * are pressed by muscle memory, so the glyph is faster to hit than the label is
+ * to read — but each still carries a `title` and an accessible name, because a
+ * symbol with no text is meaningless to a screen reader and ambiguous to
+ * anyone who has not met this particular pair of arrows before.
+ */
+function HistoryButton({
+  action,
+  onClick,
+  disabled,
+}: {
+  action: 'undo' | 'redo';
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  const label = action === 'undo' ? 'Undo' : 'Redo';
+  const shortcut = action === 'undo' ? 'Ctrl+Z' : 'Ctrl+Shift+Z';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={`${label} (${shortcut})`}
+      className={cn(
+        'flex h-8 w-9 items-center justify-center transition-colors duration-quick focus-ring',
+        disabled ? 'text-ink-700' : 'text-ink-400 hover:bg-ink-800 hover:text-ink-100',
+      )}
+    >
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        // Redo is undo mirrored, which is exactly the relationship between them.
+        style={action === 'redo' ? { transform: 'scaleX(-1)' } : undefined}
+      >
+        <path d="M2.5 5.5h7a4 4 0 0 1 0 8H6" />
+        <path d="M5.5 2.5 2.5 5.5l3 3" />
+      </svg>
+    </button>
   );
 }

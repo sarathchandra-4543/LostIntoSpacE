@@ -15,7 +15,9 @@ in the legend mean something.
 from typing import Dict, List
 
 from ._helpers import BUNDLED, JPL_SSD, NASA_FACTSHEET, prop, text_prop
+from .deep_sky import DEEP_SKY_IDS, deep_sky_objects
 from .imagery import image_for
+from .indian_space import INDIAN_SPACE_IDS, indian_space_objects
 from .models import Appearance, CatalogObject, ObjectKind, RingSystem, SurfaceTexture
 
 __all__ = ["build_space_objects", "space_objects_by_id", "SPACE_OBJECT_IDS"]
@@ -29,6 +31,29 @@ _IMAGE_KEYS = {
     "new-horizons": "new-horizons-craft",
     "parker-solar-probe": "parker",
     "chandrayaan-3": "moon-surface",
+    # ── Deep sky ──────────────────────────────────────────────
+    "orion-nebula": "orion-nebula",
+    "carina-nebula": "carina",
+    "milky-way-galaxy": "milky-way",
+    "abell-2744": "abell-cluster",
+    "andromeda-galaxy": "andromeda",
+    "whirlpool-galaxy": "galaxy",
+    "sombrero-galaxy": "sombrero",
+    "pinwheel-galaxy": "pinwheel",
+    "antennae-galaxies": "antennae",
+    "m87-galaxy": "m87-black-hole",
+    "sagittarius-a-star": "black-hole",
+    "trappist-1e": "trappist",
+    "kepler-452b": "kepler-452b",
+    "proxima-centauri-b": "proxima-b",
+    # ── The Indian space programme ────────────────────────────
+    "chandrayaan-1": "chandrayaan",
+    "vikram-lander": "moon-surface",
+    "nisar": "nisar",
+    # Objects with no verified photograph are deliberately absent: they fall
+    # through to the procedural renderer rather than borrowing a picture of
+    # something else. That includes Mangalyaan, Aditya-L1, Bhuvan, Gaganyaan,
+    # PSLV, LVM3, Chandrayaan-2, Pragyan and several deep-sky entries.
 }
 
 #: Extra photographs worth showing on an object's detail page.
@@ -46,6 +71,23 @@ _GALLERY_KEYS = {
     "perseverance": ["mars-surface", "ingenuity"],
     "neptune": ["triton"],
     "uranus": ["voyager"],
+    "milky-way-galaxy": ["star-field", "sun-corona"],
+    "andromeda-galaxy": ["star-field"],
+    "sagittarius-a-star": ["milky-way"],
+    "orion-nebula": ["horsehead-nebula", "nebula"],
+    "carina-nebula": ["southern-ring"],
+    "crab-nebula": ["star-field"],
+    "trappist-1e": ["exoplanet"],
+    "kepler-452b": ["exoplanet"],
+    "sol": ["parker", "sun-corona", "solar-flare"],
+    "luna": ["moon-surface", "apollo11", "earthrise", "chandrayaan"],
+    "chandrayaan-1": ["moon-surface"],
+    "vikram-lander": ["chandrayaan"],
+    "aditya-l1": ["sun-corona", "solar-flare"],
+    "mars": ["mars-surface", "perseverance", "curiosity", "opportunity", "spirit-rover"],
+    "jupiter": ["io", "europa", "ganymede", "callisto", "io-volcano", "ganymede-juno"],
+    "saturn": ["saturn-rings", "titan", "enceladus", "cassini-saturn", "dione", "iapetus"],
+    "pluto": ["new-horizons-craft", "charon"],
 }
 
 _FACTS = [NASA_FACTSHEET, JPL_SSD]
@@ -613,7 +655,15 @@ def _catalog() -> List[CatalogObject]:
             field_depth=0.2,
             sources=_FACTS,
         ),
-    ] + _dwarf_planets() + _moons() + _small_bodies() + _spacecraft()
+    ] + (
+        _dwarf_planets()
+        + _moons()
+        + _small_bodies()
+        + _spacecraft()
+        # The catalog does not stop at Neptune, and it does not stop at NASA.
+        + deep_sky_objects()
+        + indian_space_objects()
+    )
 
 
 def _with_imagery(objects: List[CatalogObject]) -> List[CatalogObject]:
@@ -1889,7 +1939,7 @@ SPACE_OBJECT_IDS = [
     "bennu", "ryugu", "eros", "psyche", "apophis", "halley", "churyumov-gerasimenko",
     "voyager-1", "voyager-2", "new-horizons", "parker-solar-probe",
     "perseverance", "curiosity", "chandrayaan-3", "jwst", "hubble", "iss",
-]
+] + DEEP_SKY_IDS + INDIAN_SPACE_IDS
 
 
 def space_objects_by_id() -> Dict[str, CatalogObject]:

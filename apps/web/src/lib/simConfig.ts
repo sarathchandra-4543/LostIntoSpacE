@@ -17,6 +17,11 @@
  */
 
 import type { Vehicle } from '@lostintospace/simulation-engine/core/types';
+import {
+  getDestination,
+  totalDeltaV,
+  type Destination,
+} from '@lostintospace/simulation-engine/core/destinations';
 import type {
   LaunchSite,
   MissionType,
@@ -203,6 +208,15 @@ export interface BuildConfigOptions {
   objective: string;
   targetAltitudeKm: number;
   missionType: MissionType;
+  /**
+   * Destination catalogue id, or undefined for an ascent with no onward leg.
+   *
+   * The destination does not change how the ascent is integrated — the server
+   * flies the same physics either way. It changes what the ascent is *for*, and
+   * it travels with the config so the result can be read against the trip it
+   * was meant to begin.
+   */
+  destinationId?: string;
   launchSite: LaunchSite;
   guidanceMode: SimGuidance['mode'];
   launchAzimuthDeg?: number;
@@ -237,6 +251,7 @@ export function buildSimConfig(options: BuildConfigOptions): SimConfig {
         type: options.missionType,
         target_altitude_km: options.targetAltitudeKm,
         inclination_deg: options.launchSite.latitude_deg,
+        ...destinationFields(options.destinationId),
       },
       launch_site: {
         name: options.launchSite.name,
@@ -273,5 +288,61 @@ export function buildSimConfig(options: BuildConfigOptions): SimConfig {
       on_stable_orbit: false,
       on_target_altitude: false,
     },
+  };
+}
+
+
+/**
+ * The destination half of a mission target.
+ *
+ * Kept as its own function because it is the one place a destination id becomes
+ * wire data, and because an unknown id has to degrade to "no destination"
+ * rather than to a broken request — a saved mission that referenced a
+ * destination since renamed should still fly.
+ */
+function destinationFields(destinationId: string | undefined): {
+  destination_id?: string;
+  destination_name?: string;
+  destination_delta_v_ms?: number;
+  transfer_time_s?: number;
+} {
+  if (!destinationId) return {};
+  const destination = getDestination(destinationId);
+  if (!destination) return {};
+  return {
+    destination_id: destination.id,
+    destination_name: destination.name,
+    destination_delta_v_ms: totalDeltaV(destination),
+    transfer_time_s: destination.transferTime_s,
+  };
+}
+
+/**
+ * The ascent a destination implies.
+ *
+ * Choosing Mars does not mean flying to Mars in the integrator; it means the
+ * ascent has to deliver the vehicle to the parking orbit the transfer departs
+ * from, on a profile that gets it there with speed rather than only altitude.
+ * This is where a destination reaches back into the launch configuration.
+ */
+export function ascentForDestination(destination: Destination): {
+  missionType: MissionType;
+  targetAltitudeKm: number;
+  guidanceMode: SimGuidance['mode'];
+  objective: string;
+} {
+  const targetAltitudeKm = destination.parkingOrbitAltitude_m / 1000;
+
+  // Every destination beyond the atmosphere departs from a circular parking
+  // orbit, so the ascent is always an orbital one. A vertical hop cannot begin
+  // a transfer to anywhere: it has no horizontal speed to build on.
+  return {
+    missionType: 'leo',
+    targetAltitudeKm,
+    guidanceMode: 'pitch_program',
+    objective:
+      destination.kind === 'earth_orbit'
+        ? `Reach ${destination.name.toLowerCase()}`
+        : `Reach a ${targetAltitudeKm.toFixed(0)} km parking orbit for ${destination.name}`,
   };
 }

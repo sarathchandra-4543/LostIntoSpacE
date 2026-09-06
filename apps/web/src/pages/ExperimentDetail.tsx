@@ -49,7 +49,7 @@ export default function ExperimentDetail() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <ErrorPanel title="Experiment not found" message={error} />
         <Link to="/experiments" className="mt-4 inline-block">
           <Button variant="outline">Back to experiments</Button>
@@ -60,14 +60,14 @@ export default function ExperimentDetail() {
 
   if (!experiment) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <Acquiring rows={6} />
       </div>
     );
   }
 
   return (
-    <article className="mx-auto max-w-[1200px] px-6 py-8">
+    <article className="mx-auto max-w-[1200px] px-4 sm:px-6 py-8">
       <Link
         to="/experiments"
         className="mb-6 inline-block font-condensed text-micro uppercase tracking-instrument text-ink-500 transition-colors hover:text-ink-200"

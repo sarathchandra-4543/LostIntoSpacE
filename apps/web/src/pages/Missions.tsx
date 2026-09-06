@@ -56,7 +56,7 @@ export default function Missions() {
   }, [items]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-space-100 mb-1">Missions</h1>

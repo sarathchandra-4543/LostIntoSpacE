@@ -97,6 +97,65 @@ export default {
           craft: '#B9BDC2',
         },
 
+        /**
+         * Compatibility band.
+         *
+         * An earlier iteration of this interface used a `space` / `accent` /
+         * `severity` vocabulary, and roughly twenty screens were written
+         * against it. When the palette was rebuilt around `ink` and `signal`
+         * those names stopped resolving, and a Tailwind class that does not
+         * resolve emits *nothing* — so those screens silently lost every
+         * colour they declared and rendered as unstyled text on the void.
+         * That, not their layout, is why they read as clumsy.
+         *
+         * These aliases map the old vocabulary onto the real system so the
+         * whole product is coherent again. They are aliases, not a second
+         * palette: each one points at an `ink` or `signal` value rather than
+         * introducing a colour of its own. New work should use `ink`/`signal`
+         * directly.
+         */
+        space: {
+          50: '#F4F0E8',
+          100: '#E3DDD3',
+          200: '#CAC3B7',
+          300: '#A9A296',
+          400: '#847D6F',
+          500: '#625C51',
+          600: '#4A453C',
+          650: '#3B3730',
+          700: '#302C27',
+          750: '#24211D',
+          800: '#1C1A18',
+          850: '#151412',
+          900: '#0F0E0D',
+          950: '#0A0A09',
+          1000: '#060605',
+        },
+
+        /**
+         * Accents. The old palette reached for cyan as a generic "interactive"
+         * colour. Here the primary action is flame, because propulsion is what
+         * this product is about; `cyan` is kept pointing at the cool signal hue
+         * so the few genuinely atmospheric or cryogenic readouts stay right.
+         */
+        accent: {
+          cyan: '#E4682E',
+          'cyan-bright': '#FA8A4A',
+          'cyan-dim': '#8A3F1C',
+          amber: '#D9A441',
+          violet: '#8E7CA8',
+          teal: '#7FA8B8',
+        },
+
+        /** Severity, aliased onto the status band. */
+        severity: {
+          nominal: '#8FB573',
+          info: '#7FA8B8',
+          warning: '#D9A441',
+          critical: '#C0392B',
+          fatal: '#E05A4A',
+        },
+
         // ── Engineering surfaces.
         metal: {
           titanium: '#989AA0',

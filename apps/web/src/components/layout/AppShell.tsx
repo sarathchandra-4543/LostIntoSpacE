@@ -25,7 +25,18 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-[color:var(--plane-0)]">
       <Sidebar />
-      <div className={cn('flex min-h-screen flex-col transition-[margin] duration-settle ease-instrument', collapsed ? 'ml-14' : 'ml-60')}>
+      {/*
+        The rail displaces the content only from `lg` upward. Below that it is
+        an off-canvas drawer that slides *over* the page, because a 240 px
+        margin on a 375 px phone left 135 px to put an interface in — which is
+        why every page looked broken on a handset regardless of its own layout.
+      */}
+      <div
+        className={cn(
+          'flex min-h-screen flex-col transition-[margin] duration-settle ease-instrument',
+          collapsed ? 'lg:ml-14' : 'lg:ml-60',
+        )}
+      >
         <TopBar />
         <main className="flex-1 overflow-y-auto">
           <Outlet />

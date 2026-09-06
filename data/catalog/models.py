@@ -47,8 +47,22 @@ __all__ = [
 
 
 class ObjectKind(str, Enum):
-    """What kind of thing this is. Drives grouping, iconography and physics."""
+    """What kind of thing this is. Drives grouping, iconography and physics.
 
+    The first block is the solar system and the things we have sent into it.
+    The second is everything beyond it, and it exists because a catalogue that
+    stops at Neptune teaches that the universe stops at Neptune. A nebula, a
+    galaxy cluster and a black hole are not planets with different numbers —
+    they are different kinds of object, measured in different units, and
+    flattening them into ``star`` would make the classification lie.
+
+    ``SATELLITE`` is deliberately separate from ``SPACECRAFT``: an Earth-
+    observation or navigation satellite is an operational instrument with a
+    ground segment and a service life, not a probe on a trajectory, and the
+    distinction is one every space agency draws.
+    """
+
+    # ── The solar system, and what we have built ──────────────
     STAR = "star"
     PLANET = "planet"
     DWARF_PLANET = "dwarf_planet"
@@ -59,6 +73,16 @@ class ObjectKind(str, Enum):
     TELESCOPE = "telescope"
     STATION = "station"
     LAUNCH_VEHICLE = "launch_vehicle"
+    SATELLITE = "satellite"
+
+    # ── Beyond it ─────────────────────────────────────────────
+    EXOPLANET = "exoplanet"
+    NEBULA = "nebula"
+    SUPERNOVA_REMNANT = "supernova_remnant"
+    GALAXY = "galaxy"
+    GALAXY_CLUSTER = "galaxy_cluster"
+    STAR_CLUSTER = "star_cluster"
+    BLACK_HOLE = "black_hole"
 
 
 class SurfaceTexture(str, Enum):
@@ -80,6 +104,12 @@ class SurfaceTexture(str, Enum):
     IRREGULAR = "irregular"
     STELLAR = "stellar"
     ENGINEERED = "engineered"
+    #: Diffuse emission — a nebula or a remnant. Drawn as filaments, not a disc.
+    DIFFUSE = "diffuse"
+    #: A spiral or elliptical galaxy.
+    GALACTIC = "galactic"
+    #: An accretion disc around something that emits no light of its own.
+    ACCRETION = "accretion"
 
 
 class Property(BaseModel):

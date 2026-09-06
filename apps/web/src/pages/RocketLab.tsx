@@ -71,7 +71,7 @@ export default function RocketLab() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-8 space-y-10">
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 space-y-10">
       <header>
         <h1 className="font-display text-2xl font-semibold text-space-100 mb-2">Rocket Lab</h1>
         <p className="text-sm text-space-400 max-w-2xl leading-relaxed">

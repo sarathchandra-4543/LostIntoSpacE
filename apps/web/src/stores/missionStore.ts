@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { RocketDesign } from '@lostintospace/simulation-engine/core/component-types';
+import { DEFAULT_DESTINATION_ID } from '@lostintospace/simulation-engine/core/destinations';
 import type { LaunchSite, MissionType, SimConfig, SimResult, SimGuidance } from '@/types/simulation';
 import { LAUNCH_SITES, type SimEnvironmentInput } from '@/lib/simConfig';
 
@@ -22,6 +23,15 @@ export interface MissionSetup {
   objective: string;
   missionType: MissionType;
   targetAltitudeKm: number;
+  /**
+   * Where the vehicle is going, as a destination catalogue id.
+   *
+   * This is the field that gives a launch its constraints. `targetAltitudeKm`
+   * is only the parking orbit the ascent aims at; the destination is what
+   * decides the Δv budget, the cruise duration, and what the vehicle has to
+   * carry to survive the far end.
+   */
+  destinationId: string;
   launchSite: LaunchSite;
   guidanceMode: SimGuidance['mode'];
   launchAzimuthDeg: number;
@@ -36,6 +46,7 @@ export const DEFAULT_MISSION: MissionSetup = {
   objective: 'Reach a 200 km low Earth orbit',
   missionType: 'leo',
   targetAltitudeKm: 200,
+  destinationId: DEFAULT_DESTINATION_ID,
   launchSite: LAUNCH_SITES[0],
   guidanceMode: 'pitch_program',
   launchAzimuthDeg: 90,

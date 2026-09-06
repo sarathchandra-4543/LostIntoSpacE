@@ -17,3 +17,4 @@ export * from './thrust.js';
 export * from './stability.js';
 export * from './orbital.js';
 export * from './integrator.js';
+export * from './transfer.js';

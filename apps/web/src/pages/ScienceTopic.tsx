@@ -51,7 +51,7 @@ export default function ScienceTopic() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <ErrorPanel title="Topic not found" message={error} />
         <Link to="/learn" className="mt-4 inline-block">
           <Button variant="outline">Back to the science library</Button>
@@ -62,14 +62,14 @@ export default function ScienceTopic() {
 
   if (!topic) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16">
         <Acquiring rows={6} />
       </div>
     );
   }
 
   return (
-    <article className="mx-auto max-w-[1400px] px-6 py-8">
+    <article className="mx-auto max-w-[1400px] px-4 sm:px-6 py-8">
       <Link
         to="/learn"
         className="mb-6 inline-block font-condensed text-micro uppercase tracking-instrument text-ink-500 transition-colors hover:text-ink-200"

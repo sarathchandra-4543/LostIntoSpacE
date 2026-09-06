@@ -17,12 +17,32 @@ export interface ApiError {
   };
 }
 
+/**
+ * Mirrors UserResponse in the API's OpenAPI schema.
+ *
+ * There is no `name` field and never was: the API sends a required `username`
+ * handle plus a nullable free-text `display_name`. The previous declaration
+ * here claimed `name: string`, so `user.name.charAt(0)` in the top bar threw
+ * "Cannot read properties of undefined" the moment a session existed. It went
+ * unnoticed only because registration was itself broken, which made an
+ * authenticated session nearly impossible to obtain.
+ *
+ * Use `displayLabel(user)` below rather than reaching for a name directly.
+ */
 export interface User {
   id: string;
   email: string;
-  name: string;
+  username: string;
+  display_name?: string | null;
   avatar_url?: string | null;
+  role: string;
   created_at: string;
+  updated_at?: string;
+}
+
+/** What to show for a user: their chosen display name, else their handle. */
+export function displayLabel(user: Pick<User, 'username' | 'display_name'>): string {
+  return user.display_name?.trim() || user.username;
 }
 
 export interface AuthTokens {
@@ -53,15 +73,59 @@ export interface Mission {
   updated_at: string;
 }
 
+/**
+ * A photograph attached to a catalogue record.
+ *
+ * The API declares this field as an untyped passthrough (`list[Any]`), so the
+ * shape that actually arrives is whatever the catalogue stored — which is
+ * `data/catalog/models.py::ImageRef`. Everything past `url` is optional here
+ * because a record ingested from a source other than the bundled catalogue may
+ * legitimately carry less.
+ *
+ * `credit` matters: NASA, ESA and ISRO imagery is public domain or openly
+ * licensed, but a named photographer or contributing institution is still owed
+ * an attribution wherever the picture is shown.
+ */
+export interface SpaceObjectImage {
+  url: string;
+  alt?: string;
+  title?: string;
+  credit?: string;
+  /** Instrument or mission that took it, where known. */
+  instrument?: string;
+  /** ISO-8601 capture date, where known. */
+  date?: string;
+}
+
+/**
+ * Mirrors SpaceObjectSummary / SpaceObjectDetail in the API's OpenAPI schema.
+ *
+ * The previous shape here was hand-written and had drifted from every field the
+ * API actually sends: `object_type` for `category`, a single `image_url` for the
+ * `images[]` array, `source_name` for `source`, and
+ * `physical_properties`/`orbital_elements` for `physical_data`/`orbital_data`.
+ * Because every one of those reads was optional chaining on an absent key, the
+ * drift failed silently - Explore rendered empty type badges and no imagery at
+ * all rather than raising anything.
+ *
+ * Fields below the marker are returned only by the detail endpoint.
+ */
 export interface SpaceObject {
   id: string;
   name: string;
-  object_type: string;
-  description?: string;
-  physical_properties?: Record<string, unknown>;
-  orbital_elements?: Record<string, unknown>;
-  image_url?: string;
-  source_name?: string;
+  category: string;
+  subcategory?: string | null;
+  description?: string | null;
+  images: SpaceObjectImage[];
+  source?: string | null;
+
+  // -- detail endpoint only -------------------------------------------------
+  physical_data?: Record<string, unknown> | null;
+  orbital_data?: Record<string, unknown> | null;
+  discovery?: Record<string, unknown> | null;
+  source_id?: string | null;
+  last_updated?: string | null;
+  created_at?: string;
 }
 
 export interface Lesson {

@@ -6,7 +6,8 @@ Start here.
 
 | Read this | For |
 |---|---|
-| [`getting-started/LOCAL_SETUP.md`](getting-started/LOCAL_SETUP.md) | Getting it running. Every command has been executed against this repository. |
+| [**`getting-started/INSTALL.md`**](getting-started/INSTALL.md) | **Start here.** Installation per operating system — Windows, macOS, Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine and Docker — with the version requirements and pitfalls specific to each. |
+| [`getting-started/LOCAL_SETUP.md`](getting-started/LOCAL_SETUP.md) | The database, migrations, seed data, and every step in more depth. Every command has been executed against this repository. |
 | [`getting-started/ENVIRONMENT.md`](getting-started/ENVIRONMENT.md) | Every environment variable, whether the prototype needs it, and where to get it. |
 | [`integration/CANONICAL_ARCHITECTURE.md`](integration/CANONICAL_ARCHITECTURE.md) | How the pieces fit, and why the boundaries are where they are. |
 | [`integration/MVP_STATUS.md`](integration/MVP_STATUS.md) | What actually works today, feature by feature, with honest statuses. |
@@ -30,7 +31,7 @@ disconnected trees into one product.
 
 | File | Contents |
 |---|---|
-| [`simulation/ASSUMPTIONS.md`](simulation/ASSUMPTIONS.md) | **Every approximation the physics makes, and what it costs.** Read before trusting any number the simulation produces. |
+| [`simulation/ASSUMPTIONS.md`](simulation/ASSUMPTIONS.md) | **Every approximation the physics makes, and what it costs** — including the [destination and transfer model](simulation/ASSUMPTIONS.md#destinations-and-transfers), which is solved in closed form rather than integrated. Read before trusting any number the simulation produces. |
 | [`simulation/ARCHITECTURE.md`](simulation/ARCHITECTURE.md) | Engine structure and the Python/TypeScript split. |
 | [`simulation/MIGRATION_PLAN.md`](simulation/MIGRATION_PLAN.md) | The staged plan for moving physics to Python. Historical; the migration is done. |
 | [`simulation/SIMULATION.md`](simulation/SIMULATION.md) | Simulation concepts and vocabulary. |

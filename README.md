@@ -22,15 +22,24 @@ Explore  →  Learn  →  Build  →  Launch  →  Simulate  →  Understand
   the source of every figure attached.
 - **Learn** propulsion, orbital mechanics, aerodynamics and mission design from
   a bundled, sourced corpus.
-- **Build** a rocket from 28 real components across 13 categories. Mass, Δv,
-  thrust-to-weight and static stability recompute on every change.
-- **Launch** from one of five real sites, with a target orbit, a guidance
-  program, and pre-flight checks that tell you what is wrong before you fly.
+- **Build** a rocket from a classified parts catalogue — nose cones, fins,
+  engines, tanks, payloads, recovery — each type drawn to scale from its own
+  dimensions so you choose a shape by looking at it. Mass, Δv, thrust-to-weight
+  and static stability recompute on every change.
+- **Choose a destination.** The Moon, Mars, Venus, Mercury, Titan, Europa,
+  Ceres, Jupiter, Saturn or the Sun. Each carries its real size, gravity,
+  atmosphere, temperature, rotation, distance and launch window — and each sets
+  the Δv budget, the cruise duration, and what your vehicle is obliged to carry
+  to survive the far end.
+- **Launch** from one of five real sites, with a guidance program and pre-flight
+  checks that tell you what is wrong before you fly.
 - **Simulate** in a Python physics engine: RK4 integration, inverse-square
   gravity, US Standard Atmosphere, transonic drag, staging, and the failures
   your design earns.
-- **Understand** the result in Mission Control — 3D view, live telemetry, event
-  timeline — and ask the AI why it failed, grounded in cited sources.
+- **Understand** the result in Mission Control — three camera angles from the
+  pad, alongside the vehicle and out at trajectory scale, with live telemetry
+  and an event timeline — and ask the AI why it failed, grounded in cited
+  sources.
 
 No account is needed. Signing in saves your work.
 
@@ -42,13 +51,24 @@ flight-certified engineering software.** Every approximation is listed in
 
 ## Quick start
 
+**[Full installation guide, per operating system →](docs/getting-started/INSTALL.md)**
+— Windows, macOS, Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine and Docker,
+each with the version requirements and the pitfalls that are specific to it.
+
+The shortest path on any system:
+
 ```bash
 git clone https://github.com/yashwanth-95/LostIntoSpacE.git
 cd LostIntoSpacE
 cp .env.example .env
+docker compose up --build
+```
 
-# Backend
-python3 -m venv .venv && source .venv/bin/activate
+Or without Docker — on macOS and most Linux the interpreter is `python3`, on
+Windows and Arch it is `python`:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate    # Windows: python -m venv .venv
 pip install -e "apps/api[dev]"
 pip install "httpx>=0.27" respx numpy pydantic
 cd apps/api && PYTHONPATH=$PWD python -m uvicorn src.main:app --reload --port 8000

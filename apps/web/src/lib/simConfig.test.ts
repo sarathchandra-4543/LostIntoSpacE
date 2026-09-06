@@ -4,7 +4,14 @@ import { addComponent, addStage, createRocket } from '@lostintospace/simulation-
 import { analyzeRocket } from '@lostintospace/simulation-engine/core/builder';
 import { vehicleFromAnalysis } from '@lostintospace/simulation-engine/core/vehicle';
 
-import { LAUNCH_SITES, buildSimConfig, toSimVehicle } from './simConfig';
+import { getDestination, totalDeltaV } from '@lostintospace/simulation-engine/core/destinations';
+
+import {
+  LAUNCH_SITES,
+  ascentForDestination,
+  buildSimConfig,
+  toSimVehicle,
+} from './simConfig';
 
 /**
  * The Python/TypeScript boundary.
@@ -146,5 +153,73 @@ describe('launch sites', () => {
     // The engine measures the ground from the pad, not from sea level. A set of
     // sites all at 0 m would let that regress unnoticed.
     expect(LAUNCH_SITES.some((site) => site.altitude_m > 0)).toBe(true);
+  });
+});
+
+
+describe('destinations on the wire', () => {
+  const vehicle = referenceVehicle();
+
+  const configFor = (destinationId?: string) =>
+    buildSimConfig({
+      vehicle,
+      missionName: 'Test',
+      objective: 'Test',
+      targetAltitudeKm: 200,
+      missionType: 'leo',
+      destinationId,
+      launchSite: LAUNCH_SITES[0]!,
+      guidanceMode: 'pitch_program',
+    });
+
+  it('carries the destination and its budget onto the mission target', () => {
+    const target = configFor('mars').mission.target;
+    expect(target.destination_id).toBe('mars');
+    expect(target.destination_name).toBe('Mars');
+    expect(target.destination_delta_v_ms).toBe(totalDeltaV(getDestination('mars')!));
+    expect(target.transfer_time_s).toBe(getDestination('mars')!.transferTime_s);
+  });
+
+  it('omits the destination fields entirely when there is none', () => {
+    const target = configFor(undefined).mission.target;
+    expect(target.destination_id).toBeUndefined();
+    expect(target.destination_delta_v_ms).toBeUndefined();
+  });
+
+  it('degrades to no destination rather than breaking on an unknown id', () => {
+    // A saved mission referencing a destination since renamed must still fly.
+    const target = configFor('a-place-that-does-not-exist').mission.target;
+    expect(target.destination_id).toBeUndefined();
+    expect(target.target_altitude_km).toBe(200);
+  });
+
+  it('leaves the ascent physics untouched by the destination', () => {
+    // The destination changes what the flight is *for*, never how it is flown.
+    const withMars = configFor('mars');
+    const without = configFor(undefined);
+    expect(withMars.vehicle).toEqual(without.vehicle);
+    expect(withMars.settings).toEqual(without.settings);
+    expect(withMars.guidance).toEqual(without.guidance);
+  });
+});
+
+describe('ascentForDestination', () => {
+  it('targets the parking orbit the transfer departs from', () => {
+    const mars = ascentForDestination(getDestination('mars')!);
+    expect(mars.targetAltitudeKm).toBe(200);
+    expect(mars.objective).toContain('Mars');
+  });
+
+  it('never picks a suborbital profile, which cannot begin a transfer', () => {
+    for (const id of ['leo', 'gto', 'luna', 'mars', 'titan', 'sol']) {
+      const ascent = ascentForDestination(getDestination(id)!);
+      expect(ascent.missionType, id).not.toBe('suborbital');
+      expect(ascent.guidanceMode, id).not.toBe('vertical');
+    }
+  });
+
+  it('follows the destination to a higher parking orbit where it needs one', () => {
+    expect(ascentForDestination(getDestination('leo')!).targetAltitudeKm).toBe(400);
+    expect(ascentForDestination(getDestination('gto')!).targetAltitudeKm).toBe(200);
   });
 });
