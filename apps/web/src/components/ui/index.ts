@@ -6,6 +6,7 @@ export { Select, type SelectOption } from './Select';
 export { Slider } from './Slider';
 export { Badge, type BadgeVariant } from './Badge';
 export { Modal } from './Modal';
+export { Expandable, type ExpandableProps } from './Expandable';
 export { Spinner, Acquiring } from './Spinner';
 export { EmptyState } from './EmptyState';
 export { ErrorPanel } from './ErrorPanel';

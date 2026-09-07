@@ -17,6 +17,7 @@ import {
   Badge,
   Button,
   Gauge,
+  Expandable,
   Panel,
   Readout,
   SectionRule,
@@ -151,34 +152,50 @@ export default function Builder() {
 
         {/* ── The vehicle ───────────────────────────────────── */}
         <section className="space-y-4">
-          <SectionRule
-            label="Side elevation"
-            aside={
-              <button
-                onClick={() => setCutaway((c) => !c)}
-                className={cn(
-                  'rounded-instrument border px-2 py-0.5 font-condensed text-micro uppercase tracking-label',
-                  'transition-colors duration-quick focus-ring',
-                  cutaway
-                    ? 'border-signal-cryo/40 bg-signal-cryo/10 text-signal-cryo-bright'
-                    : 'border-ink-700 text-ink-500 hover:text-ink-200',
-                )}
-              >
-                Cutaway
-              </button>
-            }
-          />
+          {/*
+            The elevation, expandable.
 
-          <RocketProfile
-            layout={analysis.layout}
-            cg_m={analysis.stabilityWet.cg_m}
-            cp_m={analysis.stabilityWet.cp_m}
-            referenceDiameter_m={analysis.stabilityWet.referenceDiameter_m}
-            selectedInstanceId={selected}
-            onSelect={setSelected}
-            cutaway={cutaway}
-            className="min-h-[320px]"
-          />
+            Full-screen matters more here than anywhere else in the product: a
+            46-metre vehicle in a 300-pixel column draws each component about
+            six pixels tall, which is enough to see a silhouette and nowhere
+            near enough to check a joint. The drawing also takes its own
+            drag-to-zoom, so the two compose — expand for room, then drag to
+            magnify inside it.
+          */}
+          <Expandable
+            title="Side elevation"
+            aside={`${analysis.totalLength_m.toFixed(2)} m`}
+            bodyClassName="flex"
+            className="min-h-[360px]"
+          >
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex shrink-0 justify-end px-2 pt-2">
+                <button
+                  onClick={() => setCutaway((c) => !c)}
+                  aria-pressed={cutaway}
+                  className={cn(
+                    'rounded-instrument px-2 py-0.5 font-condensed text-micro uppercase tracking-label',
+                    'transition-colors duration-quick focus-ring',
+                    cutaway
+                      ? 'bg-signal-cryo/12 text-signal-cryo-bright'
+                      : 'text-ink-500 hover:text-ink-200',
+                  )}
+                >
+                  Cutaway
+                </button>
+              </div>
+              <RocketProfile
+                layout={analysis.layout}
+                cg_m={analysis.stabilityWet.cg_m}
+                cp_m={analysis.stabilityWet.cp_m}
+                referenceDiameter_m={analysis.stabilityWet.referenceDiameter_m}
+                selectedInstanceId={selected}
+                onSelect={setSelected}
+                cutaway={cutaway}
+                className="min-h-0 flex-1 border-0"
+              />
+            </div>
+          </Expandable>
 
           {selectedComponent && selectedDef && (
             <Panel className="space-y-3">

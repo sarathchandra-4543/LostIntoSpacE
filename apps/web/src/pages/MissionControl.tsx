@@ -1,7 +1,16 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { Badge, Button, Card, EmptyState, Panel, SectionRule, Spinner } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Expandable,
+  Panel,
+  SectionRule,
+  Spinner,
+} from '@/components/ui';
 import {
   PLAYBACK_SPEEDS,
   useTelemetryPlayback,
@@ -112,7 +121,21 @@ export default function MissionControl() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Viewport + controls */}
         <div className="space-y-4">
-          <div className="glass-panel overflow-hidden">
+          {/*
+            The flight, expandable.
+
+            A 3D view in a 480-pixel band is a postcard of a launch. Expanding
+            it is the difference between watching a stage separation and
+            noticing one. The panel keeps the same React subtree in both states
+            deliberately: moving the node would destroy the WebGL context and
+            the scene would reload with its camera reset, mid-flight.
+          */}
+          <Expandable
+            title="Flight"
+            aside={`T+${(telemetry[playback.index]?.t ?? 0).toFixed(0)}s`}
+            bodyClassName="flex flex-col"
+            className="overflow-hidden"
+          >
             <Suspense
               fallback={
                 <div className="h-[420px] flex items-center justify-center">
@@ -134,12 +157,12 @@ export default function MissionControl() {
                 // The orbit the ascent aimed at, so the view can draw the
                 // reference trajectory the flight is measured against.
                 targetAltitude_m={mission.targetAltitudeKm * 1000}
-                className="h-[320px] w-full sm:h-[420px] lg:h-[480px]"
+                className="h-[320px] w-full min-h-0 flex-1 sm:h-[420px] lg:h-[480px]"
               />
             </Suspense>
 
             {/* Transport */}
-            <div className="border-t border-space-800 p-3 space-y-2">
+            <div className="shrink-0 border-t border-space-800 p-3 space-y-2">
               <div className="flex items-center gap-3">
                 <Button size="sm" onClick={playback.toggle}>
                   {playback.isPlaying ? 'Pause' : 'Play'}
@@ -186,7 +209,7 @@ export default function MissionControl() {
                 once, on the server, and is being replayed here.
               </p>
             </div>
-          </div>
+          </Expandable>
 
           {/* Telemetry */}
           <Card>

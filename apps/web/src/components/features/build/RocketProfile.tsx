@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildVehicleOutline,
   type FinSetShape,
@@ -75,6 +75,41 @@ export function RocketProfile({
   const outline = useMemo(() => buildVehicleOutline(layout), [layout]);
   const [hovered, setHovered] = useState<string | null>(null);
 
+  /**
+   * The view transform: how much of the drawing you are looking at, and where.
+   *
+   * A scale elevation of a 46-metre vehicle in a 300-pixel column renders every
+   * component about six pixels tall, which is enough to see the silhouette and
+   * not nearly enough to check a joint. The drawing needed to be something you
+   * can get *into*.
+   *
+   * `zoom` is a multiplier on the viewBox — grab the drawing and drag up to
+   * magnify, down to pull back, which is the gesture the brief asked for. `pan`
+   * is where the magnified window sits, in metres, so panning is in the same
+   * units as everything else in this file and needs no pixel conversion.
+   */
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const drag = useRef<{
+    mode: 'zoom' | 'pan';
+    startX: number;
+    startY: number;
+    startZoom: number;
+    startPan: { x: number; y: number };
+  } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  // A new vehicle is a new subject; keeping the old window would leave the user
+  // looking at empty space where the previous rocket used to be.
+  useEffect(() => {
+    resetView();
+  }, [layout, resetView]);
+
   if (outline.totalLength_m <= 0 || outline.shapes.length === 0) {
     return (
       <div
@@ -97,17 +132,105 @@ export function RocketProfile({
   const maxRadius = Math.max(outline.maxRadius_m, finReach(outline), length * 0.02);
   const marginX = length * 0.06;
   const marginY = maxRadius * 0.9;
-  const viewWidth = length + marginX * 2;
-  const viewHeight = maxRadius * 2 + marginY * 2;
-  const axisY = viewHeight / 2;
+  const baseWidth = length + marginX * 2;
+  const baseHeight = maxRadius * 2 + marginY * 2;
+  const axisY = baseHeight / 2;
+
+  /*
+   * The visible window.
+   *
+   * Zooming shrinks the viewBox about the point the pan has centred on, so the
+   * drawing grows without anything in it being re-laid-out — the geometry is
+   * still in metres and still generated once. `clampPan` keeps the window from
+   * being dragged entirely off the vehicle, which is the one way a pan control
+   * can strand someone with nothing on screen and no obvious way back.
+   */
+  const viewWidth = baseWidth / zoom;
+  const viewHeight = baseHeight / zoom;
+  const slackX = Math.max(0, (baseWidth - viewWidth) / 2);
+  const slackY = Math.max(0, (baseHeight - viewHeight) / 2);
+  const panX = Math.max(-slackX, Math.min(slackX, pan.x));
+  const panY = Math.max(-slackY, Math.min(slackY, pan.y));
+  const viewX = (baseWidth - viewWidth) / 2 + panX;
+  const viewY = (baseHeight - viewHeight) / 2 + panY;
 
   const strokeWidth = length * 0.0016;
 
   return (
     <div className={cn('plate relative overflow-hidden', className)}>
+      {/*
+        The controls for the view.
+
+        Stated rather than discovered: a drawing that silently responds to
+        dragging is a drawing most people never find out is interactive.
+      */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-annotation flex items-start justify-between gap-2 p-2">
+        <p className="font-mono text-[0.55rem] leading-relaxed text-ink-600">
+          drag to resize · shift-drag to move · double-click to reset
+        </p>
+        {zoom > 1.01 && (
+          <button
+            type="button"
+            onClick={resetView}
+            className="pointer-events-auto rounded-instrument px-2 py-0.5 font-mono text-[0.55rem] text-ink-400 transition-colors hover:text-ink-100 focus-ring"
+            style={{ backgroundColor: 'var(--plane-0)' }}
+          >
+            {zoom.toFixed(1)}× · reset
+          </button>
+        )}
+      </div>
+
       <svg
-        viewBox={`0 0 ${viewWidth} ${viewHeight}`}
-        className="block h-full w-full"
+        viewBox={`${viewX} ${viewY} ${viewWidth} ${viewHeight}`}
+        className={cn('block h-full w-full touch-none', dragging ? 'cursor-grabbing' : 'cursor-grab')}
+        onPointerDown={(event) => {
+          // Left-drag magnifies, right-drag or shift-drag slides the window.
+          const mode = event.button === 2 || event.shiftKey ? 'pan' : 'zoom';
+          drag.current = {
+            mode,
+            startX: event.clientX,
+            startY: event.clientY,
+            startZoom: zoom,
+            startPan: { x: panX, y: panY },
+          };
+          setDragging(true);
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const state = drag.current;
+          if (!state) return;
+          const dx = event.clientX - state.startX;
+          const dy = event.clientY - state.startY;
+
+          if (state.mode === 'zoom') {
+            // Up magnifies. Exponential so the gesture feels the same whether
+            // you are at 1× or at 20×, which a linear mapping does not.
+            const next = state.startZoom * Math.exp(-dy / 260);
+            setZoom(Math.max(1, Math.min(40, next)));
+          } else {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const perPixelX = viewWidth / rect.width;
+            const perPixelY = viewHeight / rect.height;
+            setPan({
+              x: state.startPan.x - dx * perPixelX,
+              y: state.startPan.y - dy * perPixelY,
+            });
+          }
+        }}
+        onPointerUp={(event) => {
+          drag.current = null;
+          setDragging(false);
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+          setDragging(false);
+        }}
+        onContextMenu={(event) => event.preventDefault()}
+        onWheel={(event) => {
+          setZoom((z) => Math.max(1, Math.min(40, z * Math.exp(-event.deltaY / 500))));
+        }}
+        onDoubleClick={resetView}
         role="img"
         aria-label={`Scale side elevation. Overall length ${length.toFixed(2)} metres.`}
         style={
