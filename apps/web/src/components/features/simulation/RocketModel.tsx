@@ -54,11 +54,24 @@ function ogiveProfile(radius: number, length: number, segments = 20): THREE.Vect
   const points: THREE.Vector2[] = [];
 
   for (let i = 0; i <= segments; i++) {
-    const y = (i / segments) * length;
-    // x(y) = √(ρ² − (L − y)²) − (ρ − R)
-    const inner = rho * rho - (length - y) * (length - y);
+    // `t` runs from the base of the cone to its tip.
+    const t = i / segments;
+    // Distance measured *back from the tip*, which is how the ogive is defined.
+    const fromTip = (1 - t) * length;
+    // x = √(ρ² − (L − d)²) − (ρ − R), with d measured from the tip.
+    const inner = rho * rho - (length - fromTip) * (length - fromTip);
     const x = Math.max(0, Math.sqrt(Math.max(0, inner)) - (rho - radius));
-    points.push(new THREE.Vector2(x, y));
+
+    /*
+     * The point is at y = length, not y = 0.
+     *
+     * The first version emitted the profile tip-first from y = 0, so the lathe
+     * produced a cone with its point at the *bottom* and its base flaring
+     * upward — and since the nose is positioned at the top of the stack, the
+     * vehicle wore an upside-down funnel. The profile now runs base-to-tip in
+     * the same direction the mesh is placed.
+     */
+    points.push(new THREE.Vector2(x, t * length));
   }
   return points;
 }
@@ -167,15 +180,26 @@ export function stageBands(vehicle: SimVehicle | null): StageBand[] {
 /** Hull, engine and trim materials, shared across every mesh that uses them. */
 function useMaterials() {
   return useMemo(() => {
+    /*
+     * A launch vehicle is *white*.
+     *
+     * The first pass used a metallic grey, and at 23:1 fineness against a blue
+     * sky the result was a dark splinter — you could not tell it from the
+     * tower. Real launchers are painted white or wrapped in white insulation
+     * for exactly this reason: to reflect heat, and incidentally to be visible.
+     * Low metalness matters as much as the colour, because a highly metallic
+     * surface only shows what it reflects, and there is nothing out here to
+     * reflect.
+     */
     const hull = new THREE.MeshStandardMaterial({
-      color: '#D8D3C9',
-      metalness: 0.62,
-      roughness: 0.34,
+      color: '#F2EFE9',
+      metalness: 0.12,
+      roughness: 0.42,
     });
     const hullDark = new THREE.MeshStandardMaterial({
-      color: '#8A8478',
-      metalness: 0.7,
-      roughness: 0.42,
+      color: '#C9C4BA',
+      metalness: 0.14,
+      roughness: 0.5,
     });
     const trim = new THREE.MeshStandardMaterial({
       color: '#C0392B',
@@ -311,6 +335,46 @@ export function RocketModel({
             >
               <cylinderGeometry
                 args={[band.radius_m * 1.012, band.radius_m * 1.012, band.length_m * 0.07, RADIAL]}
+              />
+            </mesh>
+
+            {/*
+              Tank ribs.
+
+              A long smooth cylinder has no scale — it could be four metres or
+              forty, and the eye has nothing to measure against. The stringers
+              and ring frames on a real tank are what give it length, so a few
+              proud rings do more for legibility here than any amount of extra
+              polygon count on the silhouette.
+            */}
+            {[0.16, 0.32, 0.48, 0.64].map((f) => (
+              <mesh
+                key={f}
+                position={[0, band.base_m + band.length_m * f, 0]}
+                material={materials.hullDark}
+              >
+                <cylinderGeometry
+                  args={[
+                    band.radius_m * 1.02,
+                    band.radius_m * 1.02,
+                    Math.max(band.length_m * 0.006, 0.04),
+                    RADIAL,
+                  ]}
+                />
+              </mesh>
+            ))}
+
+            {/* A raceway down one side: the cable duct every launcher carries. */}
+            <mesh
+              position={[
+                band.radius_m * 1.03,
+                band.base_m + band.length_m / 2,
+                0,
+              ]}
+              material={materials.hullDark}
+            >
+              <boxGeometry
+                args={[band.radius_m * 0.16, band.length_m * 0.9, band.radius_m * 0.22]}
               />
             </mesh>
           </group>

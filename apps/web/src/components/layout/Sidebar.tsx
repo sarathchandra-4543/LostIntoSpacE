@@ -50,6 +50,12 @@ const NAV: readonly NavGroup[] = [
         icon: GlobeIcon,
       },
       {
+        path: '/system',
+        label: 'Solar system',
+        hint: 'Fly the system, to scale',
+        icon: OrbitIcon,
+      },
+      {
         path: '/missions',
         label: 'Mission library',
         hint: 'Real flights, and what they found',
@@ -340,6 +346,16 @@ function GlobeIcon({ className }: IconProps) {
     <svg {...stroke(className)}>
       <circle cx="8" cy="8" r="6" />
       <path d="M2 8h12M8 2c1.8 2 1.8 10 0 12M8 2c-1.8 2-1.8 10 0 12" />
+    </svg>
+  );
+}
+
+function OrbitIcon({ className }: IconProps) {
+  return (
+    <svg {...stroke(className)}>
+      <circle cx="8" cy="8" r="2.2" />
+      <ellipse cx="8" cy="8" rx="6.6" ry="3" transform="rotate(-28 8 8)" />
+      <circle cx="13.1" cy="5.4" r="1" fill="currentColor" stroke="none" />
     </svg>
   );
 }

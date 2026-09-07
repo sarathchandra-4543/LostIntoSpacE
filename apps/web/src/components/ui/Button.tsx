@@ -4,28 +4,42 @@ import { cn } from '@/lib/utils';
 /**
  * A control on an instrument.
  *
- * Square-ish corners, a hairline edge, no gradient and no shadow. The primary
- * variant is flame because flame means "release energy" everywhere else in this
- * system, and the primary action is always the one that commits.
+ * Square-ish corners, no gradient and no shadow. The primary variant is flame
+ * because flame means "release energy" everywhere else in this system, and the
+ * primary action is always the one that commits.
+ *
+ * ## Why the outlines went away
+ *
+ * Every variant used to carry a visible border at rest. On a dense screen —
+ * the builder has upwards of thirty controls in view — that is thirty
+ * rectangles competing for attention before you have decided anything, and it
+ * is the single biggest reason the interface read as busy.
+ *
+ * Now weight comes from *fill*, not from edges. Primary carries a tinted
+ * ground; secondary carries a plain one; ghost and outline carry nothing until
+ * pointed at. The border is transparent at rest on every variant and firms up
+ * on hover, so the affordance is still there the moment you go looking for it.
+ * Nothing about the hit area or the focus ring changed.
  */
 
 const variants = {
   /** Commit. Run the simulation, open the builder, take the next step. */
   primary:
-    'bg-signal-flame/12 text-signal-flame-bright border-signal-flame/40 hover:bg-signal-flame/20 hover:border-signal-flame/70',
+    'bg-signal-flame/12 text-signal-flame-bright border-transparent hover:bg-signal-flame/20 hover:border-signal-flame/40',
   /** An equal alternative. */
   secondary:
-    'bg-ink-800 text-ink-200 border-ink-700 hover:bg-ink-750 hover:border-ink-650 hover:text-ink-100',
+    'bg-ink-800 text-ink-200 border-transparent hover:bg-ink-750 hover:border-ink-650 hover:text-ink-100',
   /** Tertiary — reads as text until touched. */
   ghost: 'bg-transparent text-ink-300 border-transparent hover:text-ink-50 hover:bg-ink-850',
   /** Destructive or abort. */
   danger:
-    'bg-signal-oxide/12 text-signal-oxide-bright border-signal-oxide/40 hover:bg-signal-oxide/22',
+    'bg-signal-oxide/12 text-signal-oxide-bright border-transparent hover:bg-signal-oxide/22 hover:border-signal-oxide/40',
   /** Confirmed-good state. */
   nominal:
-    'bg-signal-nominal/12 text-signal-nominal-bright border-signal-nominal/40 hover:bg-signal-nominal/22',
-  /** A pure outline, for dense toolbars. */
-  outline: 'bg-transparent text-ink-200 border-ink-700 hover:border-ink-500 hover:text-ink-50',
+    'bg-signal-nominal/12 text-signal-nominal-bright border-transparent hover:bg-signal-nominal/22 hover:border-signal-nominal/40',
+  /** A pure outline, for dense toolbars. Quiet until pointed at. */
+  outline:
+    'bg-transparent text-ink-300 border-transparent hover:border-ink-650 hover:text-ink-50 hover:bg-ink-850',
 } as const;
 
 const sizes = {

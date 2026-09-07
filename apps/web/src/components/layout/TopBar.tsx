@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui';
+import { ThemeToggle } from './ThemeToggle';
 import { displayLabel } from '@/types';
 
 export function TopBar() {
@@ -52,7 +53,8 @@ export function TopBar() {
         </button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <ThemeToggle />
         {isAuthenticated && user ? (
           <button
             onClick={() => navigate('/workspace')}

@@ -31,23 +31,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ── Ground. Warm neutral, deliberately not navy.
+        /**
+         * Ground and text.
+         *
+         * These resolve through CSS custom properties rather than being fixed
+         * hex values, which is what makes the light theme possible: switching
+         * `data-theme` on the root re-points every one of them, and no
+         * component needs a `dark:` variant anywhere.
+         *
+         * The scale is semantic — 50 is the most prominent text and 1000 is the
+         * deepest ground, in *both* themes — so `text-ink-50` means "loudest"
+         * rather than "nearly white". The channel-triplet form preserves
+         * Tailwind's opacity modifiers.
+         */
         ink: {
-          1000: '#060605',
-          950: '#0A0A09',
-          900: '#0F0E0D',
-          850: '#151412',
-          800: '#1C1A18',
-          750: '#24211D',
-          700: '#302C27',
-          650: '#3B3730',
-          600: '#4A453C',
-          500: '#625C51',
-          400: '#847D6F',
-          300: '#A9A296',
-          200: '#CAC3B7',
-          100: '#E3DDD3',
-          50: '#F4F0E8',
+          1000: 'rgb(var(--ink-1000) / <alpha-value>)',
+          950: 'rgb(var(--ink-950) / <alpha-value>)',
+          900: 'rgb(var(--ink-900) / <alpha-value>)',
+          850: 'rgb(var(--ink-850) / <alpha-value>)',
+          800: 'rgb(var(--ink-800) / <alpha-value>)',
+          750: 'rgb(var(--ink-750) / <alpha-value>)',
+          700: 'rgb(var(--ink-700) / <alpha-value>)',
+          650: 'rgb(var(--ink-650) / <alpha-value>)',
+          600: 'rgb(var(--ink-600) / <alpha-value>)',
+          500: 'rgb(var(--ink-500) / <alpha-value>)',
+          400: 'rgb(var(--ink-400) / <alpha-value>)',
+          300: 'rgb(var(--ink-300) / <alpha-value>)',
+          200: 'rgb(var(--ink-200) / <alpha-value>)',
+          100: 'rgb(var(--ink-100) / <alpha-value>)',
+          50: 'rgb(var(--ink-50) / <alpha-value>)',
         },
 
         // ── Status. Each of these means one thing.
@@ -115,21 +127,21 @@ export default {
          * directly.
          */
         space: {
-          50: '#F4F0E8',
-          100: '#E3DDD3',
-          200: '#CAC3B7',
-          300: '#A9A296',
-          400: '#847D6F',
-          500: '#625C51',
-          600: '#4A453C',
-          650: '#3B3730',
-          700: '#302C27',
-          750: '#24211D',
-          800: '#1C1A18',
-          850: '#151412',
-          900: '#0F0E0D',
-          950: '#0A0A09',
-          1000: '#060605',
+          50: 'rgb(var(--ink-50) / <alpha-value>)',
+          100: 'rgb(var(--ink-100) / <alpha-value>)',
+          200: 'rgb(var(--ink-200) / <alpha-value>)',
+          300: 'rgb(var(--ink-300) / <alpha-value>)',
+          400: 'rgb(var(--ink-400) / <alpha-value>)',
+          500: 'rgb(var(--ink-500) / <alpha-value>)',
+          600: 'rgb(var(--ink-600) / <alpha-value>)',
+          650: 'rgb(var(--ink-650) / <alpha-value>)',
+          700: 'rgb(var(--ink-700) / <alpha-value>)',
+          750: 'rgb(var(--ink-750) / <alpha-value>)',
+          800: 'rgb(var(--ink-800) / <alpha-value>)',
+          850: 'rgb(var(--ink-850) / <alpha-value>)',
+          900: 'rgb(var(--ink-900) / <alpha-value>)',
+          950: 'rgb(var(--ink-950) / <alpha-value>)',
+          1000: 'rgb(var(--ink-1000) / <alpha-value>)',
         },
 
         /**
@@ -139,8 +151,8 @@ export default {
          * so the few genuinely atmospheric or cryogenic readouts stay right.
          */
         accent: {
-          cyan: '#E4682E',
-          'cyan-bright': '#FA8A4A',
+          cyan: 'rgb(var(--accent-rgb) / <alpha-value>)',
+          'cyan-bright': 'rgb(var(--accent-bright-rgb) / <alpha-value>)',
           'cyan-dim': '#8A3F1C',
           amber: '#D9A441',
           violet: '#8E7CA8',

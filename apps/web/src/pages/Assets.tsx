@@ -220,7 +220,7 @@ function FilterChip({
         'rounded-instrument border px-2.5 py-1 font-condensed text-micro uppercase tracking-label',
         'transition-colors duration-quick focus-ring',
         active
-          ? 'border-signal-flame/40 bg-signal-flame/10 text-signal-flame-bright'
+          ? 'border-signal-flame/40 bg-signal-flame/10 text-ink-50'
           : 'border-ink-700 bg-ink-850 text-ink-500 hover:text-ink-200',
       )}
     >

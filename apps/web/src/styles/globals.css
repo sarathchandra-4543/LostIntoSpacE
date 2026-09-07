@@ -15,12 +15,61 @@
  */
 
 @layer base {
-  :root {
+  /*
+   * ── The token layer ──────────────────────────────────────────
+   *
+   * Every colour in the product resolves through these. Two themes are
+   * defined, and they are *not* an inversion of one another: a dark instrument
+   * and a light document are different design problems, and mechanically
+   * flipping the lightness of a dark theme produces the grey, muddy result
+   * that gives light modes a bad name.
+   *
+   * Dark is the default and the one the product was designed in — telemetry,
+   * star fields and 3D views all belong on a dark ground. Light is drawn as an
+   * archival print: warm paper, near-black ink, and the same flame accent,
+   * darkened enough to hold its contrast against paper.
+   *
+   * The ink scale is *semantic*, not literal. `--ink-50` means "the most
+   * prominent text" in both themes, which is near-white on dark and near-black
+   * on light. That inversion is why every component can be written once.
+   */
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+
     /* Depth is expressed as elevation of a plane, not as a drop shadow. */
     --plane-0: #060605;
+    --plane-0-rgb: 6 6 5;
     --plane-1: #0d0c0b;
     --plane-2: #141311;
     --plane-3: #1c1a17;
+
+    /*
+     * The semantic ink scale, as space-separated RGB channels.
+     *
+     * Channels rather than hex so Tailwind's opacity modifiers still work:
+     * `rgb(var(--ink-800) / <alpha-value>)` resolves `bg-ink-800/50`, which a
+     * hex custom property cannot. In plain CSS, write `rgb(var(--ink-200))`.
+     *
+     * The scale is semantic, not literal. `--ink-50` means "the most prominent
+     * text" in both themes: near-white on dark, near-black on light. That
+     * inversion is what lets every component be written once.
+     */
+    --ink-1000: 6 6 5;
+    --ink-950: 10 10 9;
+    --ink-900: 15 14 13;
+    --ink-850: 21 20 18;
+    --ink-800: 28 26 24;
+    --ink-750: 36 33 29;
+    --ink-700: 48 44 39;
+    --ink-650: 59 55 48;
+    --ink-600: 74 69 60;
+    --ink-500: 98 92 81;
+    --ink-400: 132 125 111;
+    --ink-300: 169 162 150;
+    --ink-200: 202 195 183;
+    --ink-100: 227 221 211;
+    --ink-50: 244 240 232;
 
     /*
      * Hairlines. The primary structural device in this interface.
@@ -36,12 +85,99 @@
     --rule: rgba(228, 221, 211, 0.065);
     --rule-strong: rgba(228, 221, 211, 0.12);
     --rule-hover: rgba(228, 221, 211, 0.16);
-    --rule-active: rgba(228, 104, 46, 0.42);
+    /*
+     * A selected edge. Deliberately *not* the accent.
+     *
+     * Using flame for every selected chip, tile and tab meant the accent —
+     * which is supposed to mean "propulsion, energy, the thing that commits" —
+     * appeared dozens of times per screen on things that were merely *chosen*.
+     * At that density it stops carrying meaning and reads as decoration, which
+     * is the specific quality that makes an interface feel generated rather
+     * than designed. Selection is now a firmer neutral rule plus a lifted
+     * ground; flame is kept for the primary action and for a burning engine.
+     */
+    --rule-active: rgba(228, 221, 211, 0.34);
+    --selected-bg: rgba(228, 221, 211, 0.07);
+
+    /* The accent. One hue, and it means propulsion. */
+    --accent: #e4682e;
+    --accent-bright: #fa8a4a;
+    --accent-rgb: 228 104 46;
+    --accent-bright-rgb: 250 138 74;
+
+    /*
+     * Glass. A blurred, slightly tinted plane that lets the field behind it
+     * through. Used only where something genuinely floats over something else
+     * — an overlay on a 3D view, a control bar, a sheet. A glass panel over a
+     * flat background is just a grey box with a performance cost.
+     */
+    --glass: rgba(20, 19, 17, 0.62);
+    --glass-edge: rgba(228, 221, 211, 0.08);
+    --glass-blur: 14px;
 
     /* The illumination model: one light source, warm, from upper left. */
     --lit: rgba(255, 244, 226, 0.9);
 
-    color-scheme: dark;
+    /*
+     * Aurora. A slow, very low-contrast wash used behind mastheads and empty
+     * states. It is the only decorative thing in the product and it is kept
+     * near the threshold of visibility on purpose — enough to stop a large
+     * dark area reading as dead, not enough to compete with content.
+     */
+    --aurora-1: rgba(127, 168, 184, 0.075);
+    --aurora-2: rgba(142, 124, 168, 0.06);
+    --aurora-3: rgba(143, 181, 115, 0.045);
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+
+    /* Warm paper, not white. A pure #fff ground glares under a dark accent. */
+    --plane-0: #f6f3ec;
+    --plane-0-rgb: 246 243 236;
+    --plane-1: #fffdf8;
+    --plane-2: #f1ece1;
+    --plane-3: #e8e1d3;
+
+    /* Inverted semantics: 50 is still "loudest", now near-black. */
+    --ink-1000: 255 253 248;
+    --ink-950: 251 248 241;
+    --ink-900: 246 243 236;
+    --ink-850: 241 236 225;
+    --ink-800: 232 225 211;
+    --ink-750: 222 213 196;
+    --ink-700: 198 189 173;
+    --ink-650: 180 170 152;
+    --ink-600: 169 160 145;
+    --ink-500: 138 128 113;
+    --ink-400: 107 98 82;
+    --ink-300: 78 71 57;
+    --ink-200: 56 51 43;
+    --ink-100: 36 33 28;
+    --ink-50: 20 18 15;
+
+    --rule-faint: rgba(32, 28, 22, 0.06);
+    --rule: rgba(32, 28, 22, 0.1);
+    --rule-strong: rgba(32, 28, 22, 0.18);
+    --rule-hover: rgba(32, 28, 22, 0.24);
+    --rule-active: rgba(32, 28, 22, 0.34);
+    --selected-bg: rgba(32, 28, 22, 0.055);
+
+    /* Darkened so it still passes contrast on paper. */
+    --accent: #be4e1a;
+    --accent-bright: #a8410f;
+    --accent-rgb: 190 78 26;
+    --accent-bright-rgb: 168 65 15;
+
+    --glass: rgba(255, 253, 248, 0.68);
+    --glass-edge: rgba(32, 28, 22, 0.1);
+    --glass-blur: 14px;
+
+    --lit: rgba(120, 90, 50, 0.35);
+
+    --aurora-1: rgba(90, 130, 150, 0.06);
+    --aurora-2: rgba(110, 95, 140, 0.05);
+    --aurora-3: rgba(120, 140, 105, 0.04);
   }
 
   html {
@@ -50,7 +186,10 @@
 
   body {
     background-color: var(--plane-0);
-    color: theme('colors.ink.200');
+    color: rgb(var(--ink-200));
+    transition:
+      background-color theme('transitionDuration.settle') ease,
+      color theme('transitionDuration.settle') ease;
     font-family: theme('fontFamily.sans');
     font-feature-settings: 'cv05' 1, 'ss03' 1;
     overflow-x: hidden;
@@ -189,7 +328,7 @@
   .glass-panel[aria-pressed='true'],
   .glass-panel[data-selected='true'] {
     border-color: var(--rule-active);
-    background-color: rgba(228, 104, 46, 0.06);
+    background-color: var(--selected-bg);
   }
 
   /**
@@ -211,9 +350,118 @@
   }
 
   .chip[aria-pressed='true'] {
-    background-color: rgba(228, 104, 46, 0.1);
+    background-color: var(--selected-bg);
     border-color: var(--rule-active);
-    color: theme('colors.signal.flame-bright');
+    color: theme('colors.ink.50');
+  }
+
+  /**
+   * Glass.
+   *
+   * A blurred plane that lets what is behind it through. Reserved for surfaces
+   * that genuinely float over something — a control bar on a 3D view, a sheet,
+   * an overlay. Glass over a flat background is a grey box with a GPU cost, so
+   * it is not the default panel style and never will be.
+   *
+   * The edge is a single hairline rather than a bright rim: the blur already
+   * separates the plane from what is behind it, and adding a highlight on top
+   * is the thing that makes glass look like a sticker.
+   */
+  .glass {
+    background-color: var(--glass);
+    border: 1px solid var(--glass-edge);
+    border-radius: theme('borderRadius.panel');
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
+  }
+
+  /**
+   * Aurora.
+   *
+   * Three very wide, very faint radial washes, drifting slowly. The whole
+   * effect sits near the threshold of visibility on purpose — it exists so a
+   * large empty area of ground does not read as dead, and the moment it becomes
+   * something you *notice* it has failed.
+   *
+   * Applied as a `::before` so it never affects layout, and never intercepts a
+   * pointer event.
+   */
+  .aurora {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .aurora::before {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 44% at 18% 22%, var(--aurora-1), transparent 70%),
+      radial-gradient(42% 38% at 82% 30%, var(--aurora-2), transparent 72%),
+      radial-gradient(46% 40% at 52% 88%, var(--aurora-3), transparent 70%);
+    filter: blur(28px);
+    animation: aurora-drift 34s ease-in-out infinite alternate;
+  }
+
+  @keyframes aurora-drift {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+      transform: translate3d(2%, -2.5%, 0) scale(1.08);
+    }
+  }
+
+  /* Anyone who asked for less motion gets the wash, held still. */
+  @media (prefers-reduced-motion: reduce) {
+    .aurora::before {
+      animation: none;
+    }
+  }
+
+  /**
+   * Chrome that floats over a 3D canvas.
+   *
+   * The canvas is always a dark scene — space is dark in both themes — so any
+   * control laid over it has to stay light-on-dark regardless of the page
+   * theme. Letting these follow the theme tokens made every viewport button
+   * and label invisible in light mode: dark grey text on a dark render.
+   *
+   * This is the one place in the product that deliberately opts out of the
+   * theme, and it does so because the surface behind it is not themed either.
+   */
+  .over-canvas {
+    background-color: rgba(6, 6, 5, 0.72);
+    backdrop-filter: blur(10px) saturate(1.1);
+    -webkit-backdrop-filter: blur(10px) saturate(1.1);
+    border-radius: theme('borderRadius.instrument');
+    color: #cac3b7;
+  }
+
+  .over-canvas-strong {
+    background-color: rgba(6, 6, 5, 0.85);
+    backdrop-filter: blur(14px) saturate(1.15);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    border: 1px solid rgba(228, 221, 211, 0.08);
+    border-radius: theme('borderRadius.panel');
+    color: #cac3b7;
+  }
+
+  /* Text roles inside canvas chrome, fixed to the dark scene behind them. */
+  .over-canvas .oc-quiet,
+  .over-canvas-strong .oc-quiet {
+    color: #847d6f;
+  }
+  .over-canvas .oc-loud,
+  .over-canvas-strong .oc-loud {
+    color: #f4f0e8;
+  }
+  .over-canvas .oc-active,
+  .over-canvas-strong .oc-active {
+    color: #f4f0e8;
+    background-color: rgba(228, 221, 211, 0.12);
   }
 
   /* ── Structure ────────────────────────────────────────────── */

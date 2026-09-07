@@ -313,18 +313,56 @@ export function ObjectField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objects, radiusFor]);
 
-  const handleMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    pointer.current = {
-      x: (event.clientX - rect.left) / rect.width,
-      y: (event.clientY - rect.top) / rect.height,
-      inside: true,
-    };
-  };
+  /**
+   * The pointer is tracked on the window, not on the canvas.
+   *
+   * This is the fix for bodies that could not be approached at all. The field
+   * is the full-bleed background of the page, and things sit *on top* of it —
+   * the inspection panel down the right edge, the headline and button row down
+   * the left. Listening for `pointermove` on the field's own element meant that
+   * the moment the cursor crossed onto one of those, the field stopped hearing
+   * anything and dropped focus.
+   *
+   * Jupiter is placed at 88% across, directly beneath the inspection panel, so
+   * approaching it hid it: focus was gained, the panel opened over the cursor,
+   * the field went deaf, focus was lost, the panel closed, and the cycle
+   * repeated. The Sun, behind the button row, failed the same way. Both looked
+   * like a card that refused to load rather than like a pointer problem.
+   *
+   * Reading the window and projecting into the field's own rectangle means an
+   * overlay no longer interrupts the field, while still receiving its own
+   * clicks normally.
+   */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-  const handleLeave = () => {
-    pointer.current.inside = false;
-  };
+    const onMove = (event: PointerEvent) => {
+      const rect = container.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      pointer.current = {
+        x,
+        y,
+        // Still bounded by the field: leaving it should release focus, and a
+        // cursor parked far down the page should not light anything up.
+        inside: x >= 0 && x <= 1 && y >= 0 && y <= 1,
+      };
+    };
+
+    const onLeaveWindow = () => {
+      pointer.current.inside = false;
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerleave', onLeaveWindow);
+    window.addEventListener('blur', onLeaveWindow);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerleave', onLeaveWindow);
+      window.removeEventListener('blur', onLeaveWindow);
+    };
+  }, []);
 
   const handleClick = () => {
     if (focused) onSelect?.(focused);
@@ -334,8 +372,6 @@ export function ObjectField({
     <div
       ref={containerRef}
       className={cn('relative', focused && 'cursor-pointer', className)}
-      onPointerMove={handleMove}
-      onPointerLeave={handleLeave}
       onClick={handleClick}
     >
       <canvas ref={canvasRef} className="block h-full w-full" aria-hidden="true" />

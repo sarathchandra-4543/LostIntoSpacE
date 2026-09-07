@@ -37,6 +37,7 @@ const Evaluation = lazy(() => import('@/pages/Evaluation'));
 const Compare = lazy(() => import('@/pages/Compare'));
 const Assets = lazy(() => import('@/pages/Assets'));
 const Explore = lazy(() => import('@/pages/Explore'));
+const SolarSystemPage = lazy(() => import('@/pages/SolarSystemPage'));
 const ObjectDetail = lazy(() => import('@/pages/ObjectDetail'));
 const Catalog = lazy(() => import('@/pages/Catalog'));
 const Learn = lazy(() => import('@/pages/Learn'));
@@ -79,6 +80,7 @@ export function App() {
           <Route element={<AppShell />}>
             <Route path="/explore" element={<Explore />} />
             <Route path="/explore/:objectId" element={<ObjectDetail />} />
+            <Route path="/system" element={<SolarSystemPage />} />
             <Route path="/catalog" element={<Catalog />} />
             <Route path="/learn" element={<Learn />} />
             <Route path="/learn/:slug" element={<ScienceTopic />} />

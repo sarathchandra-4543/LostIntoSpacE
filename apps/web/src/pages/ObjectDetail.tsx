@@ -1,42 +1,35 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { BodyDisc } from '@/components/features/explore/BodyDisc';
-import {
-  Acquiring,
-  Badge,
-  Button,
-  ErrorPanel,
-  Panel,
-  Readout,
-  SectionRule,
-} from '@/components/ui';
-import { catalog, type CatalogObject, type CatalogProperty } from '@/services/api';
+import { Badge, Button, Panel, Readout, SectionRule, Spinner } from '@/components/ui';
+import { catalog, type CatalogImage, type CatalogObject, type CatalogProperty } from '@/services/api';
 
 /**
- * One object, in full.
+ * One catalogued object.
  *
- * The photograph leads where there is one, because at this size a real image of
- * Jupiter's cloud bands carries information the drawn disc cannot. Where there
- * is none — Bennu and Ryugu — the drawn body leads instead, and the page does
- * not pretend otherwise.
+ * Reads the bundled catalogue for the same reason Explore does: this is
+ * reference data that ships with the repository, and it should not need a
+ * database server to be readable. It previously called the PostgreSQL-backed
+ * `/space-objects/{id}`, so following any link out of Explore landed on a
+ * "database unavailable" panel.
  *
- * Properties are grouped as the catalog groups them: physical, orbital,
- * atmospheric. Each carries its own unit and, where the comparison is more
- * useful than the absolute, a ratio against Earth. Every panel ends in the
- * source the numbers came from, because a measured value with no provenance is
- * just a number someone typed.
+ * Properties are rendered from whatever the record actually carries rather than
+ * from a fixed field list: a comet has no atmosphere and a star has no orbital
+ * period, and printing "—" for every inapplicable field is noise.
  */
 export default function ObjectDetail() {
-  const { objectId } = useParams<{ objectId: string }>();
+  const { objectId } = useParams();
   const [object, setObject] = useState<CatalogObject | null>(null);
+  const [related, setRelated] = useState<CatalogObject[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!objectId) return;
     let cancelled = false;
-    setObject(null);
+    setLoading(true);
     setError(null);
+
     catalog
       .object(objectId)
       .then((data) => {
@@ -44,294 +37,296 @@ export default function ObjectDetail() {
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : 'This object could not be loaded.');
+          setError(cause instanceof Error ? cause.message : 'Could not load the object.');
         }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, [objectId]);
 
-  if (error) {
+  // The related objects are fetched as a set once the record names them, so the
+  // page can offer somewhere to go next rather than dead-ending.
+  useEffect(() => {
+    if (!object?.related_ids?.length) {
+      setRelated([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      object.related_ids.slice(0, 6).map((id) => catalog.object(id).catch(() => null)),
+    ).then((rows) => {
+      if (!cancelled) setRelated(rows.filter((r): r is CatalogObject => r !== null));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [object]);
+
+  if (loading) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <ErrorPanel title="Object not found" message={error} />
-        <Link to="/explore" className="mt-4 inline-block">
-          <Button variant="outline">Back to the catalog</Button>
+      <div className="flex justify-center py-24">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (error || !object) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 px-4 py-16 text-center sm:px-6">
+        <h1 className="font-display text-2xl text-ink-100">Object not found</h1>
+        <p className="text-sm text-ink-400">{error ?? 'No object with that identifier.'}</p>
+        <Link to="/explore">
+          <Button>Back to Explore</Button>
         </Link>
       </div>
     );
   }
 
-  if (!object) {
-    return (
-      <div className="mx-auto max-w-4xl px-6 py-16">
-        <Acquiring rows={8} />
-      </div>
-    );
-  }
+  const hasAtmosphere = object.atmosphere?.length > 0;
 
   return (
-    <article className="mx-auto max-w-[1400px] px-6 py-8">
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
       <Link
         to="/explore"
-        className="mb-6 inline-block font-condensed text-micro uppercase tracking-instrument text-ink-500 transition-colors hover:text-ink-200"
+        className="font-condensed text-micro uppercase tracking-instrument text-ink-500 transition-colors hover:text-ink-200"
       >
-        ← The catalog
+        ← Explore
       </Link>
 
-      {/* ── Head ──────────────────────────────────────────────── */}
-      <header className="mb-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="min-w-0">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Badge>{object.classification}</Badge>
-            {object.designation && (
-              <span className="font-mono text-micro text-ink-500">{object.designation}</span>
-            )}
-          </div>
-
-          <h1 className="font-display text-display-md leading-[0.95] text-ink-50">
-            {object.name}
-          </h1>
-          <p className="mt-4 max-w-[40rem] font-editorial text-lg leading-relaxed text-ink-300">
-            {object.tagline}
-          </p>
-        </div>
-
-        <div className="flex justify-center lg:justify-end">
-          <BodyDisc appearance={object.appearance} size={200} title={`${object.name}, drawn from its measured colour and albedo`} />
-        </div>
+      {/* ── Identity ───────────────────────────────────────── */}
+      <header className="space-y-2">
+        <p className="t-label">{object.classification}</p>
+        <h1 className="font-display text-4xl leading-none text-ink-50 md:text-5xl">
+          {object.name}
+        </h1>
+        {object.designation && object.designation !== object.name && (
+          <p className="font-mono text-tiny text-ink-500">{object.designation}</p>
+        )}
+        <p className="max-w-2xl text-sm leading-relaxed text-ink-300">{object.tagline}</p>
       </header>
 
-      {object.image && (
-        <figure className="mb-10">
-          <img
-            src={object.image.url}
-            alt={object.image.alt}
-            loading="lazy"
-            decoding="async"
-            className="max-h-[30rem] w-full object-cover"
-          />
-          <figcaption className="mt-2 flex flex-wrap gap-x-3 font-mono text-[0.6rem] text-ink-600">
-            <span className="text-ink-400">{object.image.title}</span>
-            <span>{object.image.credit}</span>
-            {object.image.instrument && <span>{object.image.instrument}</span>}
-            {object.image.date && <span>{object.image.date}</span>}
-          </figcaption>
-        </figure>
+      {/* ── The photograph ─────────────────────────────────── */}
+      {object.image?.url ? (
+        <Figure image={object.image} fallbackAlt={object.name} />
+      ) : (
+        <Panel className="text-center">
+          <p className="text-xs text-ink-500">
+            No verified photograph of {object.name} is catalogued. Rather than borrow an image of
+            something else, this record carries none — its colour and albedo are still measured
+            values, and the explorer draws it from those.
+          </p>
+        </Panel>
       )}
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-10">
-          <section>
-            <SectionRule label="Overview" />
-            <p className="max-w-[40rem] font-editorial text-[0.98rem] leading-[1.7] text-ink-200">
-              {object.overview}
-            </p>
-          </section>
+      {/* ── Overview ───────────────────────────────────────── */}
+      <Panel>
+        <p className="whitespace-pre-line text-sm leading-relaxed text-ink-300">
+          {object.overview}
+        </p>
+      </Panel>
 
-          <PropertyTable label="Physical" properties={object.physical} />
-          <PropertyTable label="Orbital" properties={object.orbital} />
-          <PropertyTable label="Atmosphere" properties={object.atmosphere} />
+      {/* ── Measurements ───────────────────────────────────── */}
+      {object.physical.length > 0 && (
+        <>
+          <SectionRule label="Physical" />
+          <PropertyGrid properties={object.physical} />
+        </>
+      )}
 
-          {object.facts.length > 0 && (
-            <section>
-              <SectionRule label="Worth knowing" />
-              <ul className="space-y-3">
-                {object.facts.map((fact, index) => (
-                  <li key={index} className="rail max-w-[40rem]">
-                    <p className="text-sm leading-relaxed text-ink-200">{fact}</p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+      {object.orbital.length > 0 && (
+        <>
+          <SectionRule label="Orbit and rotation" />
+          <PropertyGrid properties={object.orbital} />
+        </>
+      )}
 
-          {object.gallery.length > 0 && (
-            <section>
-              <SectionRule label="Gallery" />
-              <ul className="grid gap-4 sm:grid-cols-2">
-                {object.gallery.map((image) => (
-                  <li key={image.url}>
-                    <figure>
-                      <img
-                        src={image.url}
-                        alt={image.alt}
-                        loading="lazy"
-                        decoding="async"
-                        className="aspect-[4/3] w-full object-cover"
-                      />
-                      <figcaption className="mt-1.5 font-mono text-[0.6rem] leading-relaxed text-ink-600">
-                        <span className="text-ink-400">{image.title}</span> · {image.credit}
-                      </figcaption>
-                    </figure>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
+      {hasAtmosphere && (
+        <>
+          <SectionRule label="Atmosphere" />
+          <PropertyGrid properties={object.atmosphere} />
+        </>
+      )}
 
-        {/* ── Rail ──────────────────────────────────────────── */}
-        <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
-          <Panel className="space-y-2">
-            <h2 className="t-label">At a glance</h2>
-            <dl className="space-y-1.5">
-              <Readout
-                inline
-                label="Mean radius"
-                value={object.appearance.radius_km.toLocaleString('en', {
-                  maximumFractionDigits: 1,
-                })}
-                unit="km"
-              />
-              <Readout
-                inline
-                label="Geometric albedo"
-                value={object.appearance.albedo.toFixed(3)}
-                hint={undefined}
-              />
-              {object.appearance.axial_tilt_deg !== 0 && (
-                <Readout
-                  inline
-                  label="Axial tilt"
-                  value={object.appearance.axial_tilt_deg.toFixed(2)}
-                  unit="°"
-                />
-              )}
-              <Readout inline label="Surface" value={object.appearance.texture.replace(/_/g, ' ')} />
-            </dl>
+      {/* ── Facts ──────────────────────────────────────────── */}
+      {object.facts.length > 0 && (
+        <>
+          <SectionRule label="Worth knowing" />
+          <Panel flush className="divide-y divide-[color:var(--rule-faint)]">
+            {object.facts.map((fact) => (
+              <p key={fact} className="px-4 py-3 text-sm leading-relaxed text-ink-300">
+                {fact}
+              </p>
+            ))}
           </Panel>
+        </>
+      )}
 
-          {object.concept_slugs.length > 0 && (
-            <div>
-              <SectionRule label="The science" />
-              <ul className="space-y-1">
-                {object.concept_slugs.map((slug) => (
-                  <li key={slug}>
-                    <Link
-                      to={`/learn/${slug}`}
-                      className="block py-1 text-sm text-signal-flame transition-colors hover:text-signal-flame-bright"
-                    >
-                      {slug.replace(/-/g, ' ')} →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+      {/* ── Gallery ────────────────────────────────────────── */}
+      {object.gallery.length > 0 && (
+        <>
+          <SectionRule label="More imagery" />
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {object.gallery.map((image) => (
+              <li key={image.url}>
+                <Figure image={image} fallbackAlt={object.name} compact />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
-          {object.mission_ids.length > 0 && (
-            <div>
-              <SectionRule label="Missions here" />
-              <ul className="space-y-1">
-                {object.mission_ids.map((id) => (
-                  <li key={id}>
-                    <Link
-                      to={`/missions/${id}`}
-                      className="block py-1 text-sm text-ink-300 transition-colors hover:text-ink-50"
-                    >
-                      {id.replace(/-/g, ' ')} →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+      {/* ── Where to go next ───────────────────────────────── */}
+      {related.length > 0 && (
+        <>
+          <SectionRule label="Related" />
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {related.map((neighbour) => (
+              <li key={neighbour.id}>
+                <Link to={`/explore/${neighbour.id}`} className="glass-panel block p-3 focus-ring">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-sm text-ink-100">{neighbour.name}</span>
+                    <Badge className="shrink-0">{neighbour.kind.replace(/_/g, ' ')}</Badge>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-[0.65rem] leading-relaxed text-ink-500">
+                    {neighbour.tagline}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
-          {object.related_ids.length > 0 && (
-            <div>
-              <SectionRule label="Next" />
-              <ul className="space-y-1">
-                {object.related_ids.map((id) => (
-                  <li key={id}>
-                    <Link
-                      to={`/explore/${id}`}
-                      className="block py-1 text-sm text-ink-300 transition-colors hover:text-ink-50"
-                    >
-                      {id.replace(/-/g, ' ')} →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {object.sources.length > 0 && (
-            <Panel tone="sunken" className="space-y-1.5">
-              <h2 className="t-label">Where these numbers come from</h2>
-              {object.sources.map((source, index) => (
-                <p key={index} className="text-tiny leading-relaxed text-ink-500">
-                  {source.source_url ? (
+      {/* ── Where the numbers came from ────────────────────── */}
+      <SectionRule label="Provenance" />
+      <Panel className="space-y-2">
+        {object.sources.length > 0 ? (
+          <ul className="space-y-1.5">
+            {object.sources.map((source) => (
+              <li key={source.source_name} className="text-xs leading-relaxed text-ink-400">
+                <span className="text-ink-200">{source.source_name}</span>
+                {source.source_url && (
+                  <>
+                    {' — '}
                     <a
                       href={source.source_url}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="text-ink-300 underline decoration-ink-700 underline-offset-2 hover:text-ink-100"
+                      className="text-signal-flame transition-colors hover:text-signal-flame-bright"
                     >
-                      {source.source_name}
+                      {source.source_url}
                     </a>
-                  ) : (
-                    source.source_name
-                  )}
-                  {source.attribution ? ` — ${source.attribution}` : ''}
-                </p>
-              ))}
-            </Panel>
-          )}
-        </aside>
-      </div>
-    </article>
+                  </>
+                )}
+                {source.attribution && (
+                  <span className="block text-[0.65rem] text-ink-600">{source.attribution}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-ink-500">No source recorded for this record.</p>
+        )}
+        <p className="text-[0.65rem] leading-relaxed text-ink-600 hairline-t pt-2">
+          Figures are as published by the source and are not re-derived here. Where a value is
+          quoted to a given precision, that is the precision the reference gives it.
+        </p>
+      </Panel>
+    </div>
   );
 }
 
-/** One group of measured properties, with units and Earth ratios. */
-function PropertyTable({ label, properties }: { label: string; properties: CatalogProperty[] }) {
-  if (properties.length === 0) return null;
-
+/** A photograph, shown whole, with the attribution it is owed. */
+function Figure({
+  image,
+  fallbackAlt,
+  compact,
+}: {
+  image: CatalogImage;
+  fallbackAlt: string;
+  compact?: boolean;
+}) {
   return (
-    <section>
-      <SectionRule label={label} />
-      <dl className="max-w-[44rem] divide-y divide-[color:var(--rule-faint)]">
-        {properties.map((property, index) => (
-          <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-2.5">
-            <div className="min-w-0">
-              <dt className="text-sm text-ink-200">{property.label}</dt>
-              {property.note && (
-                <p className="mt-0.5 text-tiny leading-relaxed text-ink-500">{property.note}</p>
-              )}
-            </div>
-            <dd className="text-right">
-              <span className="font-mono text-sm tabular-nums text-ink-50">
-                {property.display ?? format(property.value)}
-                {property.unit && !property.display && (
-                  <span className="ml-1 text-ink-500">{property.unit}</span>
-                )}
-              </span>
-              {property.earth_ratio !== null && property.earth_ratio !== undefined && (
-                <p className="mt-0.5 font-mono text-[0.6rem] text-ink-600">
-                  {formatRatio(property.earth_ratio)} × Earth
-                </p>
-              )}
-            </dd>
-          </div>
+    <figure
+      className="overflow-hidden rounded-panel"
+      style={{ backgroundColor: 'var(--plane-0)' }}
+    >
+      <img
+        src={image.url}
+        alt={image.alt || fallbackAlt}
+        loading="lazy"
+        decoding="async"
+        className={
+          compact
+            ? 'mx-auto block h-40 w-full object-contain'
+            : 'mx-auto block max-h-[28rem] w-full object-contain'
+        }
+      />
+      <figcaption className="px-3 py-2 font-mono text-[0.6rem] leading-relaxed text-ink-500 hairline-t">
+        {image.title}
+        {image.credit && <span className="text-ink-600"> · {image.credit}</span>}
+        {image.instrument && <span className="block text-ink-700">{image.instrument}</span>}
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Measured properties, rendered the way the record says to render them. */
+function PropertyGrid({ properties }: { properties: CatalogProperty[] }) {
+  return (
+    <Panel>
+      <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+        {properties.map((property) => (
+          <Readout
+            key={property.label}
+            label={property.label}
+            value={formatProperty(property)}
+            unit={property.display ? undefined : (property.unit ?? undefined)}
+            size="sm"
+            hint={
+              property.earth_ratio != null
+                ? `${property.earth_ratio.toLocaleString(undefined, { maximumFractionDigits: 3 })}× Earth`
+                : (property.note ?? undefined)
+            }
+          />
         ))}
       </dl>
-    </section>
+    </Panel>
   );
 }
 
-function format(value?: number | null): string {
-  if (value === null || value === undefined) return '—';
+/** Render one catalogue property the way its record says to. */
+function formatProperty(property: CatalogProperty): string {
+  if (property.display) return property.display;
+  if (property.value === null || property.value === undefined) return '—';
+
+  const value = property.value;
   const magnitude = Math.abs(value);
-  if (magnitude >= 1e6 || (magnitude > 0 && magnitude < 0.001)) return value.toExponential(3);
-  if (magnitude >= 1000) return value.toLocaleString('en', { maximumFractionDigits: 1 });
-  if (magnitude >= 10) return value.toFixed(2);
-  return value.toFixed(3);
+
+  if (magnitude >= 1e6 || (magnitude > 0 && magnitude < 0.001)) {
+    // Scientific notation, rendered the way a reference table would.
+    const exponent = Math.floor(Math.log10(magnitude));
+    const mantissa = value / 10 ** exponent;
+    return `${mantissa.toFixed(2)}×10${superscript(exponent)}`;
+  }
+  if (magnitude >= 1000) return value.toLocaleString('en', { maximumFractionDigits: 0 });
+  return value.toFixed(property.precision ?? (magnitude < 10 ? 2 : 1));
 }
 
-function formatRatio(ratio: number): string {
-  if (ratio >= 1000) return ratio.toLocaleString('en', { maximumFractionDigits: 0 });
-  if (ratio >= 1) return ratio.toFixed(2);
-  return ratio.toFixed(4);
+const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+function superscript(n: number): string {
+  const sign = n < 0 ? '⁻' : '';
+  return (
+    sign +
+    Math.abs(n)
+      .toString()
+      .split('')
+      .map((d) => SUPERSCRIPTS[Number(d)] ?? d)
+      .join('')
+  );
 }

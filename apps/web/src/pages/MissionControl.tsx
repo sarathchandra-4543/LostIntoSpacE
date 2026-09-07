@@ -1,7 +1,7 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { Badge, Button, Card, EmptyState, Spinner } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, Panel, SectionRule, Spinner } from '@/components/ui';
 import {
   PLAYBACK_SPEEDS,
   useTelemetryPlayback,
@@ -9,7 +9,7 @@ import {
 import { FailureAnalysisPanel } from '@/components/features/simulation/FailureAnalysisPanel';
 import { useMissionStore } from '@/stores/missionStore';
 import { cn, formatMass, formatVelocity } from '@/lib/utils';
-import type { SimEvent } from '@/types/simulation';
+import type { SimEvent, SimResult } from '@/types/simulation';
 
 /**
  * Mission Control.
@@ -33,7 +33,6 @@ export default function MissionControl() {
 
   const telemetry = result?.telemetry ?? [];
   const playback = useTelemetryPlayback(telemetry, { autoPlay: true });
-  const [showAnalysis, setShowAnalysis] = useState(false);
 
   // Events that have already happened at the current mission time.
   const elapsedEvents = useMemo(
@@ -86,7 +85,17 @@ export default function MissionControl() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* A failed flight has one obvious next question, and the answer is
+              at the bottom of the page. This is the shortcut to it. */}
+          {failed && (
+            <a href="#debrief">
+              <Button size="sm" variant="danger">
+                {result.failures.length} failure
+                {result.failures.length === 1 ? '' : 's'} — read the debrief ↓
+              </Button>
+            </a>
+          )}
           <Link to="/launch">
             <Button size="sm" variant="ghost">
               Reconfigure
@@ -120,6 +129,11 @@ export default function MissionControl() {
                 // The vehicle from the config that produced this flight, so the
                 // model on screen has the dimensions that were actually flown.
                 vehicle={lastConfig?.vehicle ?? null}
+                // Where the flight was going, so the view can actually show it.
+                destinationId={mission.destinationId}
+                // The orbit the ascent aimed at, so the view can draw the
+                // reference trajectory the flight is measured against.
+                targetAltitude_m={mission.targetAltitudeKm * 1000}
                 className="h-[320px] w-full sm:h-[420px] lg:h-[480px]"
               />
             </Suspense>
@@ -263,45 +277,172 @@ export default function MissionControl() {
             )}
           </Card>
 
-          {/* Failures */}
-          {failed && (
-            <Card className="border-severity-fatal/30 space-y-3">
-              <h2 className="font-display text-sm font-semibold text-severity-fatal">
-                Failure{result.failures.length === 1 ? '' : 's'}
-              </h2>
-              {result.failures.map((failure) => (
-                <div key={failure.id} className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="fatal">{failure.mode_id}</Badge>
-                    <span className="text-2xs font-mono text-space-500">
-                      T+{failure.t.toFixed(1)}s
-                    </span>
-                  </div>
-                  <p className="text-2xs text-space-300 leading-relaxed">
-                    {failure.educational_explanation}
-                  </p>
-                  <p className="text-2xs text-space-500 leading-relaxed">
-                    <span className="text-space-400">Fix:</span> {failure.recommended_fix}
-                  </p>
-                  <p className="text-2xs font-mono text-space-600">
-                    {failure.trigger_condition}: {failure.measured_value.toFixed(2)} vs{' '}
-                    {failure.threshold_value.toFixed(2)} {failure.unit}
-                  </p>
-                </div>
-              ))}
-
-              {!showAnalysis && (
-                <Button size="sm" className="w-full" onClick={() => setShowAnalysis(true)}>
-                  Ask the assistant why
-                </Button>
-              )}
-            </Card>
-          )}
-
-          {showAnalysis && <FailureAnalysisPanel result={result} designName={design?.name} />}
         </aside>
       </div>
+
+      {/*
+        ── The debrief ──────────────────────────────────────────
+
+        Full width, below the flight, at the end of the run.
+
+        This used to live in the right-hand rail, three hundred pixels wide,
+        below the telemetry — which is to say the single most important thing
+        the product does was the narrowest column on the page and the last
+        thing you would find. Failure analysis is the whole argument: a rocket
+        that cannot lift its own weight is not an error state, it is the
+        lesson, and it deserves the main space at the moment it becomes
+        relevant.
+
+        It appears where a debrief belongs — after the flight, not beside it.
+      */}
+      {result && <MissionDebrief result={result} designName={design?.name} />}
     </div>
+  );
+}
+
+/**
+ * What happened, and why.
+ *
+ * Ordered the way a flight review is: the outcome first, then each failure with
+ * the threshold it crossed and the number it crossed it by, then the fix, then
+ * — on request — the grounded explanation from the assistant.
+ *
+ * A successful flight gets a debrief too. "Nothing broke" is a result, and
+ * hiding the panel on success would teach that analysis is something you only
+ * do when things go wrong.
+ */
+function MissionDebrief({
+  result,
+  designName,
+}: {
+  result: SimResult;
+  designName?: string;
+}) {
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const failed = result.failures.length > 0;
+
+  return (
+    <section className="mt-8 scroll-mt-6" id="debrief" aria-labelledby="debrief-heading">
+      <SectionRule
+        label="Debrief"
+        aside={
+          <span className="font-mono text-micro text-ink-600">
+            {failed
+              ? `${result.failures.length} failure${result.failures.length === 1 ? '' : 's'}`
+              : 'no failures'}
+          </span>
+        }
+      />
+
+      <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        {/* ── What happened ──────────────────────────────── */}
+        <Panel className="space-y-4">
+          <div>
+            <h2 id="debrief-heading" className="font-display text-2xl leading-none text-ink-50">
+              {failed ? 'What went wrong' : 'The flight held together'}
+            </h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-400">
+              {failed
+                ? 'Each failure below names the threshold that was crossed, the value that crossed it, and the change that would prevent it.'
+                : 'No failure threshold was crossed. The summary above has the margins it flew with.'}
+            </p>
+          </div>
+
+          {failed ? (
+            <ul className="space-y-4">
+              {result.failures.map((failure) => (
+                <li key={failure.id} className="space-y-2 hairline-t pt-3 first:border-0 first:pt-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="fatal">{failure.mode_id.replace(/_/g, ' ')}</Badge>
+                    <span className="font-mono text-tiny text-ink-500">
+                      T+{failure.t.toFixed(1)}s
+                    </span>
+                    {failure.stage_index !== null && failure.stage_index !== undefined && (
+                      <span className="font-mono text-tiny text-ink-600">
+                        stage {failure.stage_index + 1}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-sm leading-relaxed text-ink-200">
+                    {failure.educational_explanation}
+                  </p>
+
+                  {/* The measurement against the limit. This is the part that
+                      makes it a finding rather than an opinion. */}
+                  <div className="rounded-instrument p-2.5" style={{ backgroundColor: 'var(--plane-0)' }}>
+                    <p className="t-label mb-1">{failure.trigger_condition}</p>
+                    <p className="font-mono text-xs tabular-nums text-ink-100">
+                      <span className="text-signal-oxide-bright">
+                        {failure.measured_value.toFixed(2)}
+                      </span>
+                      {' against a limit of '}
+                      {failure.threshold_value.toFixed(2)} {failure.unit}
+                    </p>
+                  </div>
+
+                  <p className="text-xs leading-relaxed text-ink-300">
+                    <span className="t-label mr-1.5">Fix</span>
+                    {failure.recommended_fix}
+                  </p>
+
+                  {failure.contributing_factors.length > 0 && (
+                    <p className="text-[0.65rem] leading-relaxed text-ink-500">
+                      <span className="t-label mr-1.5">Contributing</span>
+                      {failure.contributing_factors.join(' · ')}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs leading-relaxed text-ink-500">
+              Every automatic check the engine runs — structural load, dynamic pressure, thermal,
+              guidance and propulsion — stayed inside its threshold for the whole flight.
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-3 hairline-t pt-3">
+            <Link to="/builder">
+              <Button size="sm" variant="secondary">
+                Change the design
+              </Button>
+            </Link>
+            <Link to="/launch">
+              <Button size="sm" variant="ghost">
+                Fly it again
+              </Button>
+            </Link>
+            <Link to="/evaluation">
+              <Button size="sm" variant="ghost">
+                Full mission report
+              </Button>
+            </Link>
+          </div>
+        </Panel>
+
+        {/* ── Ask why ────────────────────────────────────── */}
+        <div>
+          {showAnalysis ? (
+            <FailureAnalysisPanel result={result} designName={designName} />
+          ) : (
+            <Panel className="space-y-3">
+              <h3 className="font-display text-lg leading-tight text-ink-100">
+                Ask the assistant
+              </h3>
+              <p className="text-xs leading-relaxed text-ink-400">
+                It reads this flight's telemetry and events, and answers from retrieved sources
+                with the citations attached. If it has no evidence for something, it says so
+                rather than filling the gap.
+              </p>
+              <Button size="sm" onClick={() => setShowAnalysis(true)}>
+                {failed ? 'Explain these failures' : 'Review this flight'}
+              </Button>
+            </Panel>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -168,8 +168,12 @@ export default function Landing() {
           className="pointer-events-none absolute inset-y-0 left-0 z-objects w-full md:max-w-[46rem]"
           aria-hidden="true"
           style={{
+            // Built from the theme's own ground rather than a fixed near-black.
+            // Hard-coding the dark value put an opaque black slab across the
+            // left half of the page in light mode — the field showed through
+            // on one side and was buried on the other.
             background:
-              'linear-gradient(100deg, rgba(6,6,5,0.94) 0%, rgba(6,6,5,0.88) 26%, rgba(6,6,5,0.55) 52%, rgba(6,6,5,0) 100%)',
+              'linear-gradient(100deg, rgb(var(--plane-0-rgb) / 0.94) 0%, rgb(var(--plane-0-rgb) / 0.86) 26%, rgb(var(--plane-0-rgb) / 0.5) 52%, rgb(var(--plane-0-rgb) / 0) 100%)',
           }}
         />
 

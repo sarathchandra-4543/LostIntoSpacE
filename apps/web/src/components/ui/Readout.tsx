@@ -20,7 +20,7 @@ const tones = {
   nominal: 'text-signal-nominal-bright',
   caution: 'text-signal-caution-bright',
   critical: 'text-signal-oxide-bright',
-  active: 'text-signal-flame-bright',
+  active: 'text-ink-50',
   quiet: 'text-ink-400',
 } as const;
 

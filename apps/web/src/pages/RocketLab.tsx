@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { createStockRegistry } from '@lostintospace/simulation-engine/core/catalog';
 import type { ComponentDef } from '@lostintospace/simulation-engine/core/component-types';
 
-import { Badge, Button, Card, EmptyState, Input, Modal } from '@/components/ui';
+import { ComponentPreview } from '@/components/features/build/ComponentPreview';
+import { Badge, Button, Card, EmptyState, Input, Modal, SectionRule } from '@/components/ui';
+import {
+  categorySingular,
+  classify,
+  formatPartMass,
+  partSummary,
+} from '@/lib/componentTaxonomy';
 import { PRESETS, buildPreset } from '@/lib/presets';
 import { useMissionStore } from '@/stores/missionStore';
-import { cn } from '@/lib/utils';
 
 /**
  * Rocket Lab — the component catalogue and the way into the Builder.
@@ -17,22 +23,6 @@ import { cn } from '@/lib/utils';
  * the spec that will fly.
  */
 
-const CATEGORY_LABELS: Record<string, string> = {
-  engine: 'Engines',
-  fuel_tank: 'Fuel tanks',
-  oxidizer_tank: 'Oxidiser tanks',
-  body: 'Structures',
-  nose_cone: 'Nose cones',
-  fin: 'Fins',
-  payload: 'Payload',
-  decoupler: 'Separation',
-  avionics: 'Avionics',
-  guidance: 'Guidance',
-  parachute: 'Recovery',
-  heat_shield: 'Thermal',
-  landing_leg: 'Landing',
-};
-
 export default function RocketLab() {
   const navigate = useNavigate();
   const setDesign = useMissionStore((s) => s.setDesign);
@@ -40,27 +30,30 @@ export default function RocketLab() {
   const components = useMemo(() => registry.listAll(), [registry]);
 
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<string | null>(null);
+  const [family, setFamily] = useState<string | null>(null);
   const [selected, setSelected] = useState<ComponentDef | null>(null);
 
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const c of components) counts.set(c.category, (counts.get(c.category) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  }, [components]);
-
-  const visible = useMemo(() => {
+  const matching = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return components.filter((c) => {
-      if (category && c.category !== category) return false;
-      if (!needle) return true;
-      return (
+    if (!needle) return components;
+    return components.filter(
+      (c) =>
         c.name.toLowerCase().includes(needle) ||
         c.description?.toLowerCase().includes(needle) ||
-        c.category.toLowerCase().includes(needle)
-      );
-    });
-  }, [components, query, category]);
+        partSummary(c).toLowerCase().includes(needle),
+    );
+  }, [components, query]);
+
+  /**
+   * The catalogue, grouped into families and then categories.
+   *
+   * Derived from the shared taxonomy rather than counted ad hoc here, which is
+   * what stopped this page and the Builder disagreeing about what a category
+   * is called.
+   */
+  const groups = useMemo(() => classify(matching), [matching]);
+  const shown = family ? groups.filter((g) => g.label === family) : groups;
+  const total = groups.reduce((sum, g) => sum + g.total, 0);
 
   const startFrom = (presetId: string) => {
     const design = buildPreset(presetId);
@@ -112,101 +105,129 @@ export default function RocketLab() {
         </div>
       </section>
 
-      {/* Component catalogue */}
-      <section aria-labelledby="catalog-heading" className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="catalog-heading" className="font-display text-sm font-semibold text-space-200">
-            Component catalogue
-          </h2>
+      {/* ── Component catalogue ──────────────────────────────── */}
+      <section aria-labelledby="catalog-heading" className="space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+          <div>
+            <h2 id="catalog-heading" className="font-display text-2xl leading-none text-ink-50">
+              Component catalogue
+            </h2>
+            <p className="mt-1.5 text-xs text-ink-500">
+              {total} part{total === 1 ? '' : 's'} in {groups.length} famil
+              {groups.length === 1 ? 'y' : 'ies'}, each drawn to scale from its own dimensions.
+            </p>
+          </div>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search components…"
+            placeholder="Search parts…"
             aria-label="Search components"
             className="w-full sm:w-64"
           />
         </div>
 
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by category">
+        {/*
+          Families, not a wall of chips.
+
+          Twenty-two flat filter buttons wrapping across three ragged rows is
+          not a classification — it is every leaf of the taxonomy shouted at
+          once, and half of them were raw enum keys. Seven families, each with a
+          count, is a thing you can read.
+        */}
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by family">
           <button
-            onClick={() => setCategory(null)}
-            className={cn(
-              'px-2.5 py-1 rounded-md text-2xs border transition-colors focus-ring',
-              category === null
-                ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/30'
-                : 'bg-space-800/50 text-space-400 border-space-700 hover:text-space-200',
-            )}
-            aria-pressed={category === null}
+            type="button"
+            onClick={() => setFamily(null)}
+            aria-pressed={family === null}
+            className="chip"
           >
-            All ({components.length})
+            Everything
+            <span className="ml-1.5 font-mono text-[0.6rem] opacity-60">{total}</span>
           </button>
-          {categories.map(([key, count]) => (
+          {groups.map((group) => (
             <button
-              key={key}
-              onClick={() => setCategory(category === key ? null : key)}
-              className={cn(
-                'px-2.5 py-1 rounded-md text-2xs border transition-colors focus-ring',
-                category === key
-                  ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/30'
-                  : 'bg-space-800/50 text-space-400 border-space-700 hover:text-space-200',
-              )}
-              aria-pressed={category === key}
+              key={group.label}
+              type="button"
+              onClick={() => setFamily(family === group.label ? null : group.label)}
+              aria-pressed={family === group.label}
+              className="chip"
             >
-              {CATEGORY_LABELS[key] ?? key} ({count})
+              {group.label}
+              <span className="ml-1.5 font-mono text-[0.6rem] opacity-60">{group.total}</span>
             </button>
           ))}
         </div>
 
-        {visible.length === 0 ? (
+        {shown.length === 0 ? (
           <EmptyState
             title="No components match"
-            description="Try a different search term or clear the category filter."
+            description="Try a different search term, or clear the family filter."
           />
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.map((component) => (
-              <li key={component.id}>
-                <button
-                  onClick={() => setSelected(component)}
-                  className="w-full text-left glass-panel p-4 hover:border-accent-cyan/40 transition-colors focus-ring"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <span className="font-medium text-sm text-space-100">{component.name}</span>
-                    <Badge className="shrink-0 text-2xs">
-                      {CATEGORY_LABELS[component.category] ?? component.category}
-                    </Badge>
-                  </div>
-                  <p className="text-2xs text-space-500 leading-relaxed line-clamp-2 mb-3">
-                    {component.description}
-                  </p>
-                  <dl className="flex flex-wrap gap-x-4 gap-y-1 text-2xs">
-                    <div className="flex gap-1">
-                      <dt className="text-space-600">Mass</dt>
-                      <dd className="text-space-300 font-mono">{component.mass_kg} kg</dd>
+          <div className="space-y-8">
+            {shown.map((group) => (
+              <section key={group.label} className="space-y-4">
+                <div>
+                  <SectionRule label={group.label} />
+                  <p className="mt-1.5 text-xs text-ink-500">{group.blurb}</p>
+                </div>
+
+                {group.categories.map((entry) => (
+                  <div key={entry.key} className="space-y-2">
+                    <div className="flex flex-wrap items-baseline gap-x-3">
+                      <h3 className="font-display text-base leading-none text-ink-100">
+                        {entry.info.label}
+                      </h3>
+                      <span className="font-mono text-[0.6rem] text-ink-600">
+                        {entry.components.length}
+                      </span>
+                      <p className="min-w-0 flex-1 text-[0.7rem] leading-relaxed text-ink-500">
+                        {entry.info.blurb}
+                      </p>
                     </div>
-                    {'thrustSeaLevel_N' in component && (
-                      <div className="flex gap-1">
-                        <dt className="text-space-600">Thrust</dt>
-                        <dd className="text-accent-cyan font-mono">
-                          {((component as never as { thrustSeaLevel_N: number }).thrustSeaLevel_N /
-                            1000).toFixed(0)}{' '}
-                          kN
-                        </dd>
-                      </div>
-                    )}
-                    {'propellantMass_kg' in component && (
-                      <div className="flex gap-1">
-                        <dt className="text-space-600">Propellant</dt>
-                        <dd className="text-space-300 font-mono">
-                          {(component as never as { propellantMass_kg: number }).propellantMass_kg} kg
-                        </dd>
-                      </div>
-                    )}
-                  </dl>
-                </button>
-              </li>
+
+                    {/*
+                      A regular grid, one card per part, every card the same
+                      height. The previous layout let each card size itself to
+                      its description, so a row of three had three different
+                      heights and the page read as rubble.
+                    */}
+                    <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                      {entry.components.map((component) => (
+                        <li key={component.id}>
+                          <button
+                            type="button"
+                            onClick={() => setSelected(component)}
+                            className="glass-panel group flex h-full w-full items-stretch gap-3 overflow-hidden text-left focus-ring"
+                          >
+                            <span
+                              className="block w-14 shrink-0 self-stretch transition-transform duration-settle ease-orbital group-hover:scale-105"
+                              style={{ backgroundColor: 'var(--plane-0)' }}
+                            >
+                              <ComponentPreview component={component} />
+                            </span>
+                            <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-2.5 pr-3">
+                              <span className="flex items-baseline justify-between gap-2">
+                                <span className="min-w-0 text-[0.78rem] leading-snug text-ink-100">
+                                  {component.name}
+                                </span>
+                                <span className="shrink-0 font-mono text-[0.62rem] text-ink-500">
+                                  {formatPartMass(component.mass_kg)}
+                                </span>
+                              </span>
+                              <span className="font-mono text-[0.6rem] leading-snug text-ink-500">
+                                {partSummary(component)}
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </section>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
@@ -253,6 +274,7 @@ function ComponentDetail({
   return (
     <Modal open onClose={onClose} title={component.name}>
       <div className="space-y-5">
+        <Badge>{categorySingular(component.category)}</Badge>
         <p className="text-xs text-space-400 leading-relaxed">{component.description}</p>
 
         <div>

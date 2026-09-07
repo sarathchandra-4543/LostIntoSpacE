@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 
-import type {
-  ComponentCategory,
-  ComponentDef,
-} from '@lostintospace/simulation-engine/core/component-types';
+import type { ComponentDef } from '@lostintospace/simulation-engine/core/component-types';
 
 import { Input } from '@/components/ui';
+import {
+  GROUPS,
+  categoryLabel,
+  formatPartMass,
+  partSummary,
+} from '@/lib/componentTaxonomy';
 import { cn } from '@/lib/utils';
 
 import { ComponentPreview } from './ComponentPreview';
@@ -30,112 +33,6 @@ import { ComponentPreview } from './ComponentPreview';
  * Search cuts across the whole catalogue, because sometimes you know the name.
  */
 
-/** Categories in the order a build proceeds, top to bottom. */
-const SECTIONS: readonly {
-  readonly label: string;
-  readonly categories: readonly ComponentCategory[];
-}[] = [
-  { label: 'Airframe', categories: ['nose_cone', 'fairing', 'body', 'coupler', 'interstage'] },
-  { label: 'Propulsion', categories: ['engine', 'motor_mount', 'fuel_tank', 'oxidizer_tank'] },
-  { label: 'Aerodynamics', categories: ['fin'] },
-  { label: 'Structure', categories: ['bulkhead', 'centering_ring', 'decoupler'] },
-  { label: 'Avionics', categories: ['avionics', 'guidance', 'sensor', 'battery'] },
-  { label: 'Mission', categories: ['payload'] },
-  { label: 'Recovery', categories: ['parachute', 'heat_shield', 'landing_leg'] },
-];
-
-const CATEGORY_LABEL: Record<string, string> = {
-  nose_cone: 'Nose cones',
-  fairing: 'Fairings',
-  body: 'Body tubes',
-  coupler: 'Couplers',
-  interstage: 'Interstages',
-  engine: 'Engines',
-  motor_mount: 'Motor mounts',
-  fuel_tank: 'Fuel tanks',
-  oxidizer_tank: 'Oxidiser tanks',
-  fin: 'Fin sets',
-  bulkhead: 'Bulkheads',
-  centering_ring: 'Centering rings',
-  decoupler: 'Separators',
-  avionics: 'Flight computers',
-  guidance: 'Guidance',
-  sensor: 'Sensors',
-  battery: 'Batteries',
-  payload: 'Payloads',
-  parachute: 'Parachutes',
-  heat_shield: 'Heat shields',
-  landing_leg: 'Landing legs',
-};
-
-/** The one line that says what makes this part different from the next one. */
-function partSummary(component: ComponentDef): string {
-  const record = component as unknown as Record<string, number | string | undefined>;
-  const num = (key: string) => (typeof record[key] === 'number' ? (record[key] as number) : null);
-
-  switch (component.category) {
-    case 'nose_cone':
-    case 'fairing': {
-      const shape = String(record['shape'] ?? '').replace(/_/g, ' ');
-      const fineness = num('finenessRatio');
-      const cd = num('dragCoefficient');
-      return [
-        shape,
-        fineness !== null ? `fineness ${fineness.toFixed(1)}` : null,
-        cd !== null ? `Cd ${cd.toFixed(2)}` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-    }
-    case 'fin': {
-      const count = num('finCount');
-      const span = num('span_m');
-      return [
-        count !== null ? `${count} fins` : null,
-        span !== null ? `${(span * 100).toFixed(0)} cm span` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-    }
-    case 'engine': {
-      const thrust = num('thrustSeaLevel_N') ?? num('thrust_N');
-      const isp = num('isp_vacuum_s');
-      const propellant = String(record['propellantType'] ?? '').replace(/_/g, ' ');
-      return [
-        thrust !== null ? `${(thrust / 1000).toFixed(thrust < 10_000 ? 1 : 0)} kN` : null,
-        isp !== null ? `Isp ${isp.toFixed(0)} s` : null,
-        propellant || null,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-    }
-    case 'fuel_tank':
-    case 'oxidizer_tank': {
-      const propellant = num('propellantMass_kg');
-      const type = String(record['propellantType'] ?? '').replace(/_/g, ' ');
-      return [propellant !== null ? `${propellant.toFixed(0)} kg` : null, type || null]
-        .filter(Boolean)
-        .join(' · ');
-    }
-    case 'parachute': {
-      const diameter = num('deployedDiameter_m');
-      return diameter !== null ? `${diameter.toFixed(1)} m canopy` : 'Recovery';
-    }
-    case 'payload': {
-      return `${component.mass_kg.toFixed(0)} kg payload`;
-    }
-    default:
-      return `${component.length_m.toFixed(2)} m · ⌀${component.outerDiameter_m.toFixed(2)} m`;
-  }
-}
-
-/** A mass, in whichever unit keeps it readable. */
-function mass(kg: number): string {
-  if (kg < 1) return `${(kg * 1000).toFixed(0)} g`;
-  if (kg < 1000) return `${kg.toFixed(kg < 10 ? 1 : 0)} kg`;
-  return `${(kg / 1000).toFixed(1)} t`;
-}
-
 export interface PartsBrowserProps {
   /** Every component in the catalogue. */
   components: readonly ComponentDef[];
@@ -147,7 +44,7 @@ export interface PartsBrowserProps {
 }
 
 export function PartsBrowser({ components, onAdd, enabled, className }: PartsBrowserProps) {
-  const [category, setCategory] = useState<ComponentCategory>('nose_cone');
+  const [category, setCategory] = useState<string>('nose_cone');
   const [query, setQuery] = useState('');
 
   const byCategory = useMemo(() => {
@@ -171,7 +68,7 @@ export function PartsBrowser({ components, onAdd, enabled, className }: PartsBro
         (c) =>
           c.name.toLowerCase().includes(needle) ||
           c.description.toLowerCase().includes(needle) ||
-          (CATEGORY_LABEL[c.category] ?? c.category).toLowerCase().includes(needle),
+          categoryLabel(c.category).toLowerCase().includes(needle),
       );
     }
     return byCategory.get(category) ?? [];
@@ -184,7 +81,7 @@ export function PartsBrowser({ components, onAdd, enabled, className }: PartsBro
         aria-label="Component categories"
         className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-1 pb-1 sm:mx-0 sm:max-h-[62vh] sm:flex-col sm:overflow-y-auto sm:px-0"
       >
-        {SECTIONS.map((section) => {
+        {GROUPS.map((section) => {
           const present = section.categories.filter((c) => (byCategory.get(c)?.length ?? 0) > 0);
           if (present.length === 0) return null;
 
@@ -207,11 +104,11 @@ export function PartsBrowser({ components, onAdd, enabled, className }: PartsBro
                       'flex w-full shrink-0 items-baseline justify-between gap-2 whitespace-nowrap',
                       'rounded-instrument px-2 py-1.5 text-left transition-colors duration-quick focus-ring',
                       active
-                        ? 'bg-signal-flame/10 text-signal-flame-bright'
+                        ? 'bg-ink-100/8 text-ink-50'
                         : 'text-ink-400 hover:bg-ink-900 hover:text-ink-100',
                     )}
                   >
-                    <span className="truncate text-xs">{CATEGORY_LABEL[key] ?? key}</span>
+                    <span className="truncate text-xs">{categoryLabel(key)}</span>
                     <span className="shrink-0 font-mono text-[0.6rem] text-ink-600">{count}</span>
                   </button>
                 );
@@ -236,7 +133,7 @@ export function PartsBrowser({ components, onAdd, enabled, className }: PartsBro
           </p>
         )}
 
-        <ul className="grid max-h-[56vh] grid-cols-2 gap-2 overflow-y-auto pr-1 lg:grid-cols-3 xl:grid-cols-2">
+        <ul className="grid max-h-[56vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-1">
           {visible.map((component) => (
             <li key={component.id}>
               <button
@@ -245,31 +142,31 @@ export function PartsBrowser({ components, onAdd, enabled, className }: PartsBro
                 disabled={!enabled}
                 title={component.description}
                 className={cn(
-                  'glass-panel group flex h-full w-full flex-col overflow-hidden text-left focus-ring',
+                  'glass-panel group flex h-full w-full items-stretch gap-2 overflow-hidden text-left focus-ring',
                   'disabled:pointer-events-none disabled:opacity-40',
                 )}
               >
                 <span
-                  className="block h-20 w-full shrink-0"
+                  className="block w-16 shrink-0 self-stretch"
                   style={{ backgroundColor: 'var(--plane-0)' }}
                 >
                   <ComponentPreview component={component} />
                 </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5 p-2">
+                <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-2 pr-2">
                   <span className="flex items-baseline justify-between gap-1.5">
-                    <span className="truncate text-[0.7rem] leading-tight text-ink-200">
+                    <span className="min-w-0 text-[0.72rem] leading-snug text-ink-200">
                       {component.name}
                     </span>
                     <span className="shrink-0 font-mono text-[0.6rem] text-ink-500">
-                      {mass(component.mass_kg)}
+                      {formatPartMass(component.mass_kg)}
                     </span>
                   </span>
-                  <span className="truncate font-mono text-[0.58rem] leading-tight text-ink-600">
+                  <span className="font-mono text-[0.58rem] leading-snug text-ink-600">
                     {partSummary(component)}
                   </span>
                   {searching && (
                     <span className="truncate font-mono text-[0.55rem] text-ink-700">
-                      {CATEGORY_LABEL[component.category] ?? component.category}
+                      {categoryLabel(component.category)}
                     </span>
                   )}
                 </span>

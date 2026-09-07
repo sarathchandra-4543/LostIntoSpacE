@@ -367,8 +367,8 @@ export default function Launch() {
                 className={cn(
                   'rounded-instrument border p-3 text-left transition-colors duration-quick focus-ring',
                   candidate.id === siteId
-                    ? 'border-signal-flame/50 bg-signal-flame/8'
-                    : 'border-ink-800 bg-ink-900 hover:border-ink-600',
+                    ? 'border-[color:var(--rule-active)] bg-[color:var(--selected-bg)]'
+                    : 'border-transparent bg-ink-900 hover:border-ink-700',
                 )}
               >
                 <div className="flex items-baseline justify-between gap-2">

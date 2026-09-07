@@ -1,0 +1,66 @@
+{
+ "earth": {
+  "artist": "NASA Goddard Space Flight Center Scientific Visualization Studio",
+  "commons_title": "Blue Marble: Next Generation",
+  "credit": "NASA Goddard Space Flight Center Scientific Visualization Studio",
+  "file": "earth.png",
+  "licence": "Public domain",
+  "source": "https://svs.gsfc.nasa.gov/2915"
+ },
+ "enceladus": {
+  "artist": "NASA/JPL-Caltech/Space Science Institute/Lunar and Planetary Institute",
+  "commons_title": "File:Enceladus Color Map.jpg",
+  "credit": "http://photojournal.jpl.nasa.gov/jpeg/PIA18435.jpg",
+  "file": "enceladus.jpg",
+  "licence": "Public domain",
+  "source": "https://commons.wikimedia.org/wiki/File:Enceladus_Color_Map.jpg"
+ },
+ "jupiter": {
+  "artist": "NASA/JPL/Space Science Institute",
+  "commons_title": "File:Jupiter Cylindrical Map - Dec 2000 PIA07782.jpg",
+  "credit": "http://photojournal.jpl.nasa.gov/catalog/PIA07782 (image link)",
+  "file": "jupiter.jpg",
+  "licence": "Public domain",
+  "source": "https://commons.wikimedia.org/wiki/File:Jupiter_Cylindrical_Map_-_Dec_2000_PIA07782.jpg"
+ },
+ "mars": {
+  "artist": "NASA / Jet Propulsion Lab / USGS",
+  "commons_title": "File:Mars Viking MDIM21 ClrMosaic 1km.jpg",
+  "credit": "https://astrogeology.usgs.gov/search/details/Mars/Viking/MDIM21/Mars_Viking_MDIM21_ClrMosaic_global_232m/cub",
+  "file": "mars.jpg",
+  "licence": "Public domain",
+  "source": "https://commons.wikimedia.org/wiki/File:Mars_Viking_MDIM21_ClrMosaic_1km.jpg"
+ },
+ "mercury": {
+  "artist": "NASA/Johns Hopkins University Applied Physics Laboratory/Carnegie Institution of Washington",
+  "commons_title": "File:Mercury map by MESSENGER global mosaic enhancedcolor over completebasemap.png",
+  "credit": "http://messenger.jhuapl.edu/gallery/sciencePhotos/image.php?image_id=1226",
+  "file": "mercury.png",
+  "licence": "Public domain",
+  "source": "https://commons.wikimedia.org/wiki/File:Mercury_map_by_MESSENGER_global_mosaic_enhancedcolor_over_completebasemap.png"
+ },
+ "pluto": {
+  "artist": "NASA / Johns Hopkins University Applied Physics Laboratory / Southwest Research Institute",
+  "commons_title": "File:Pluto color mapmosaic.jpg",
+  "credit": "https://www.nasa.gov/image-feature/pluto-global-color-map",
+  "file": "pluto.jpg",
+  "licence": "Public domain",
+  "source": "https://commons.wikimedia.org/wiki/File:Pluto_color_mapmosaic.jpg"
+ },
+ "titan": {
+  "artist": "NASA/JPL",
+  "commons_title": "File:Mosaic image of Titan (iau0915a).tiff",
+  "credit": "This media was produced by the International Astronomical Union (IAU), under the identifier iau0915a. This tag does not indicate the copyright status of the attached work. A normal copyright tag is still required. See Commons:Licensing.",
+  "file": "titan.jpg",
+  "licence": "CC BY 4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Mosaic_image_of_Titan_(iau0915a).tiff"
+ },
+ "venus": {
+  "artist": "NASA / Jet Propulsion Laboratory",
+  "commons_title": "File:Cylindrical Map of Venus.jpg",
+  "credit": "http://solarviews.com/cap/venus/venmap.htm (image link)",
+  "file": "venus.jpg",
+  "licence": "Public domain",
+  "source": "https://commons.wikimedia.org/wiki/File:Cylindrical_Map_of_Venus.jpg"
+ }
+}
